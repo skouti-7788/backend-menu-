@@ -6,7 +6,7 @@ return [
     'allowed_methods' => ['*'],
 
     'allowed_origins' => [
-         'menu-online.vercel.app',
+         'https://menu-online.vercel.app',
          'https://responsable-restaurant-sr5c.vercel.app'
 
     ],
