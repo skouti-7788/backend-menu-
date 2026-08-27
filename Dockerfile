@@ -19,3 +19,6 @@ RUN composer install --optimize-autoloader --no-dev
 EXPOSE 8000
 
 CMD php artisan serve --host=0.0.0.0 --port=8000
+
+RUN composer install --optimize-autoloader --no-dev --ignore-platform-reqs
+RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip
