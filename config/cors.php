@@ -6,6 +6,8 @@ return [
     'allowed_methods' => ['*'],
 
     'allowed_origins' => [
+         'http://localhost:5174',
+         'http://localhost:5173',
          'https://menu-online.vercel.app',
          'https://responsable-restaurant-sr5c.vercel.app'
 
