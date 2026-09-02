@@ -54,7 +54,39 @@ class PublicMenuSecurityTest extends TestCase
         $response->assertOk();
         $response->assertJsonPath('restaurant.slug', $restaurantA->slug);
         $this->assertCount(1, $response->json('tables'));
-        $this->assertSame($restaurantATable->qr_token, $response->json('tables.0.qr_token'));
+        $response->assertJsonPath('tables.0.id', $restaurantATable->id);
+        $response->assertJsonPath('tables.0.number', 1);
+        $response->assertJsonMissingPath('tables.0.qr_token');
+    }
+
+    public function test_public_menu_hides_table_tokens_and_only_exposes_safe_table_fields(): void
+    {
+        $owner = User::create([
+            'name' => 'Owner Three',
+            'email' => 'owner3@example.com',
+            'password' => bcrypt('secret789'),
+            'role' => 'restaurant_manager',
+        ]);
+
+        $restaurant = Restaurant::create([
+            'user_id' => $owner->id,
+            'name' => 'Gamma Bistro',
+            'slug' => 'gamma-bistro',
+        ]);
+
+        $table = RestaurantTable::create([
+            'restaurant_id' => $restaurant->id,
+            'name' => 'Table 9',
+            'number' => 9,
+            'status' => 'available',
+        ]);
+
+        $response = $this->getJson('/api/menu/' . $restaurant->slug);
+
+        $response->assertOk();
+        $response->assertJsonPath('tables.0.id', $table->id);
+        $response->assertJsonPath('tables.0.number', 9);
+        $response->assertJsonMissingPath('tables.0.qr_token');
     }
 
     public function test_public_order_rejects_cross_restaurant_meals_and_forces_pending_status(): void
@@ -132,5 +164,57 @@ class PublicMenuSecurityTest extends TestCase
         $response->assertStatus(422);
         $this->assertDatabaseMissing('orders', ['restaurant_id' => $restaurantA->id]);
         $this->assertDatabaseMissing('order_items', ['meal_id' => $mealB->id]);
+    }
+
+    public function test_public_order_rejects_inactive_meals(): void
+    {
+        $owner = User::create([
+            'name' => 'Owner Four',
+            'email' => 'owner4@example.com',
+            'password' => bcrypt('secretabc'),
+            'role' => 'restaurant_manager',
+        ]);
+
+        $restaurant = Restaurant::create([
+            'user_id' => $owner->id,
+            'name' => 'Delta Kitchen',
+            'slug' => 'delta-kitchen',
+        ]);
+
+        $category = MenuCategory::create([
+            'restaurant_id' => $restaurant->id,
+            'name' => 'Lunch',
+            'status' => 'active',
+        ]);
+
+        $table = RestaurantTable::create([
+            'restaurant_id' => $restaurant->id,
+            'name' => 'Table 1',
+            'number' => 1,
+            'status' => 'available',
+        ]);
+
+        $meal = Meal::create([
+            'restaurant_id' => $restaurant->id,
+            'category_id' => $category->id,
+            'name' => 'Soup',
+            'description' => 'Disabled item',
+            'price' => 9.50,
+            'status' => 'inactive',
+            'featured' => false,
+        ]);
+
+        $response = $this->postJson('/api/menu/' . $restaurant->slug . '/orders', [
+            'customer_name' => 'Bob',
+            'phone' => '0612345678',
+            'address' => 'Table 1',
+            'table_token' => $table->qr_token,
+            'items' => [
+                ['meal_id' => $meal->id, 'quantity' => 1],
+            ],
+        ]);
+
+        $response->assertStatus(422);
+        $this->assertDatabaseMissing('orders', ['restaurant_id' => $restaurant->id]);
     }
 }

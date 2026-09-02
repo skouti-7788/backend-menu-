@@ -30,17 +30,17 @@ class OrderRequest extends FormRequest
             'phone' => ['nullable', 'string', 'max:32'],
             'address' => ['required', 'string', 'max:1024'],
             'status' => $statusRules,
-            'items' => ['required', 'array', 'min:1'],
+            'items' => ['required', 'array', 'min:1', 'max:50'],
             'items.*.meal_id' => ['required', 'integer', 'exists:meals,id', function ($attribute, $value, $fail) use ($isPublicMenuOrder, $restaurantId) {
                 if (! $isPublicMenuOrder || $restaurantId === null) {
                     return;
                 }
 
-                if (! Meal::where('restaurant_id', $restaurantId)->whereKey($value)->exists()) {
+                if (! Meal::where('restaurant_id', $restaurantId)->whereKey($value)->where('status', 'active')->exists()) {
                     $fail('The selected meal is not available for this restaurant.');
                 }
             }],
-            'items.*.quantity' => ['required', 'integer', 'min:1'],
+            'items.*.quantity' => ['required', 'integer', 'min:1', 'max:100'],
             'items.*.notes' => ['nullable', 'string', 'max:500'],
         ];
 

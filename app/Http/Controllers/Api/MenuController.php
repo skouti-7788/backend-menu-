@@ -69,10 +69,8 @@ class MenuController extends Controller
             'meals' => $meals,
             'tables' => $restaurant->tables()->orderBy('number')->get()->map(fn (RestaurantTable $table) => [
                 'id' => $table->id,
-                'restaurant_id' => $table->restaurant_id,
                 'name' => $table->name,
                 'number' => $table->number,
-                'qr_token' => $table->qr_token,
                 'status' => $table->status,
             ]),
         ]);
@@ -96,13 +94,13 @@ class MenuController extends Controller
                 'table_token' => $table->qr_token,
             ]);
 
-            $total = 0;
+            $subtotal = 0;
 
             foreach ($items as $item) {
-                $meal = $restaurant->meals()->whereKey($item['meal_id'])->firstOrFail();
+                $meal = $restaurant->meals()->whereKey($item['meal_id'])->where('status', 'active')->firstOrFail();
                 $quantity = (int) ($item['quantity'] ?? 0);
-                $lineTotal = $meal->price * $quantity;
-                $total += $lineTotal;
+                $lineTotal = (float) $meal->price * $quantity;
+                $subtotal += $lineTotal;
 
                 OrderItem::create([
                     'order_id' => $order->id,
@@ -114,15 +112,39 @@ class MenuController extends Controller
                 ]);
             }
 
+            $tax = round($subtotal * 0.09, 2);
+            $total = round($subtotal + $tax, 2);
+
             $order->update(['total' => $total]);
+            $table->refresh();
             $table->update(['status' => 'reserved']);
+
+            $order->refresh();
 
             return $order->load('items');
         });
 
         return response()->json([
             'message' => 'Order created successfully',
-            'order' => $order,
+            'order' => [
+                'id' => $order->id,
+                'restaurant_id' => $order->restaurant_id,
+                'customer_name' => $order->customer_name,
+                'phone' => $order->phone,
+                'address' => $order->address,
+                'status' => $order->status->value,
+                'subtotal' => round($order->items->sum('total_price'), 2),
+                'tax' => round($order->items->sum('total_price') * 0.09, 2),
+                'total' => $order->total,
+                'table_id' => $order->table_id,
+                'items' => $order->items->map(fn ($item) => [
+                    'meal_id' => $item->meal_id,
+                    'quantity' => $item->quantity,
+                    'unit_price' => $item->unit_price,
+                    'total_price' => $item->total_price,
+                    'notes' => $item->notes,
+                ]),
+            ],
         ], 201);
     }
 
@@ -131,7 +153,7 @@ class MenuController extends Controller
         $restaurant = Restaurant::where('slug', $slug)->firstOrFail();
         $mealId = $request->input('meal_id');
 
-        if ($mealId !== null && ! $restaurant->meals()->whereKey($mealId)->exists()) {
+        if ($mealId !== null && ! $restaurant->meals()->whereKey($mealId)->where('status', 'active')->exists()) {
             abort(422, 'The selected meal is not available for this restaurant.');
         }
 
