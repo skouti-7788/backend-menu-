@@ -8,13 +8,20 @@ class OrderResource extends JsonResource
 {
     public function toArray($request): array
     {
+        $subtotal = $this->whenLoaded('items', fn () => $this->items->sum('total_price'), 0);
+        $subtotal = $subtotal ?: $this->items()->sum('total_price');
+        $tax = round((float) $subtotal * 0.09, 2);
+        $total = round((float) $subtotal + $tax, 2);
+
         return [
             'id' => $this->id,
             'restaurant_id' => $this->restaurant_id,
             'customer_name' => $this->customer_name,
             'phone' => $this->phone,
             'address' => $this->address,
-            'total' => $this->total,
+            'subtotal' => round((float) $subtotal, 2),
+            'tax' => round((float) $tax, 2),
+            'total' => round((float) $this->total ?: $total, 2),
             'table_id' => $this->table_id,
             'status' => $this->status->value,
             'items' => $this->whenLoaded('items', function () {
