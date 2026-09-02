@@ -23,48 +23,46 @@ class OrderController extends Controller
         return OrderResource::collection($restaurant->orders()->with('items')->latest()->get());
     }
 
-    public function store(OrderRequest $request , Restaurant $restaurant): OrderResource
+    public function store(OrderRequest $request, Restaurant $restaurant): OrderResource
     {
         $this->authorizeRestaurant($restaurant);
- 
-        $items = collect($request->input('items'));
-        
-        $order = Order::create([
-            'restaurant_id' => $restaurant->id,
-            'customer_name' => $request->customer_name,
-            'phone' => $request->phone,
-            'address' => $request->address,
-            'status' => $request->status ? OrderStatus::from($request->status) : OrderStatus::PENDING,
-            'total' => 0,
-            // 'table_id' => $request->table_id
-            // 'table_number' => $request->table_number,
-        ]);
-        $total = 0;
 
-        foreach ($items as $item) {
-            $meal = Meal::findOrFail($item['meal_id']);
+        $items = collect($request->input('items', []));
 
-            $lineTotal = $meal->price * $item['quantity'];
-            $total += $lineTotal;
-
-            OrderItem::create([
-                'order_id' => $order->id,
-                'meal_id' => $meal->id,
-                'quantity' => $item['quantity'],
-                'unit_price' => $meal->price,
-                'total_price' => $lineTotal,
-                // 'notes' => $item['notes'] ?? '',
-                'notes' => (string) ($item['notes'] ?? ''),
-
-                // 'notes' => filled($item['notes'] ?? null)
-                //                 ? $item['notes']
-                //                 : 'No notes',
+        $order = DB::transaction(function () use ($restaurant, $request, $items) {
+            $order = Order::create([
+                'restaurant_id' => $restaurant->id,
+                'customer_name' => $request->customer_name,
+                'phone' => $request->phone,
+                'address' => $request->address,
+                'status' => $request->status ? OrderStatus::from($request->status) : OrderStatus::PENDING,
+                'total' => 0,
             ]);
-        }
 
-        $order->update(['total' => $total]);
+            $total = 0;
 
-        return new OrderResource($order->load('items'));
+            foreach ($items as $item) {
+                $meal = $restaurant->meals()->whereKey($item['meal_id'])->firstOrFail();
+                $quantity = (int) ($item['quantity'] ?? 0);
+                $lineTotal = $meal->price * $quantity;
+                $total += $lineTotal;
+
+                OrderItem::create([
+                    'order_id' => $order->id,
+                    'meal_id' => $meal->id,
+                    'quantity' => $quantity,
+                    'unit_price' => $meal->price,
+                    'total_price' => $lineTotal,
+                    'notes' => (string) ($item['notes'] ?? ''),
+                ]);
+            }
+
+            $order->update(['total' => $total]);
+
+            return $order->load('items');
+        });
+
+        return new OrderResource($order);
     }
     // public function store(
     //         OrderRequest $request,
