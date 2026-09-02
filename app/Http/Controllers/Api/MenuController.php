@@ -2,18 +2,19 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Order\OrderRequest;
+use App\Models\Meal;
 use App\Models\MenuView;
+use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\Restaurant;
+use App\Models\RestaurantTable;
 use App\Services\TranslationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use App\Http\Requests\Order\OrderRequest;
-use App\Models\Order;
-use App\Models\RestaurantTable;
-use App\Models\OrderItem;
-use App\Models\Meal;
-use App\Enums\OrderStatus;
+use Illuminate\Support\Facades\DB;
 
 class MenuController extends Controller
 {
@@ -33,7 +34,6 @@ class MenuController extends Controller
                 $meal->name = $translation->name;
                 $meal->description = $translation->description;
             }
-        
 
             return [
                 'id' => $meal->id,
@@ -49,6 +49,7 @@ class MenuController extends Controller
         return response()->json([
             'restaurant' => [
                 'id' => $restaurant->id,
+                'slug' => $restaurant->slug,
                 'name' => $restaurant->name,
                 'description' => $restaurant->description,
                 'address' => $restaurant->address,
@@ -66,84 +67,77 @@ class MenuController extends Controller
                 'image_url' => $category->image ? url('storage/'.$category->image) : null,
             ]),
             'meals' => $meals,
-            'tables' =>  RestaurantTable::all(),
+            'tables' => $restaurant->tables()->orderBy('number')->get()->map(fn (RestaurantTable $table) => [
+                'id' => $table->id,
+                'restaurant_id' => $table->restaurant_id,
+                'name' => $table->name,
+                'number' => $table->number,
+                'qr_token' => $table->qr_token,
+                'status' => $table->status,
+            ]),
         ]);
     }
-    
 
-
-    public function storeOrder(
-        OrderRequest $request,
-        string $slug
-    ): JsonResponse {
-
-        // 1. Find restaurant
+    public function storeOrder(OrderRequest $request, string $slug): JsonResponse
+    {
         $restaurant = Restaurant::where('slug', $slug)->firstOrFail();
+        $items = collect($request->input('items', []));
+        $table = $restaurant->tables()->where('qr_token', $request->input('table_token'))->firstOrFail();
 
-        // 2. Get items
-        $items = collect($request->input('items'));
-        // 3. Create order
-        $table = RestaurantTable::where('qr_token', $request->table_token)
-        ->where('restaurant_id', $restaurant->id)
-        ->firstOrFail();
-        $order = Order::create([
-            'restaurant_id' => $restaurant->id,
-            'customer_name' => $request->customer_name,
-            'phone' => $request->phone,
-            'address' => $request->address,
-
-            'status' => $request->status
-                ? OrderStatus::from($request->status)
-                : OrderStatus::PENDING,
-
-            'total' => 0,
-             'table_id' => $table->id,
-             'table_token' => $table->qr_token,
-         ]);
-
-        // 4. Calculate total
-        $total = 0;
-
-        foreach ($items as $item) {
-
-            $meal = Meal::findOrFail($item['meal_id']);
-
-            $lineTotal =
-                $meal->price * $item['quantity'];
-
-            $total += $lineTotal;
-
-            OrderItem::create([
-                'order_id' => $order->id,
-                'meal_id' => $meal->id,
-                'quantity' => $item['quantity'],
-                'unit_price' => $meal->price,
-                'total_price' => $lineTotal,
-                'notes' => $item['notes'] ?? null,
+        $order = DB::transaction(function () use ($restaurant, $items, $table, $request) {
+            $order = Order::create([
+                'restaurant_id' => $restaurant->id,
+                'customer_name' => $request->customer_name,
+                'phone' => $request->phone,
+                'address' => $request->address,
+                'status' => OrderStatus::PENDING,
+                'total' => 0,
+                'table_id' => $table->id,
+                'table_token' => $table->qr_token,
             ]);
-        }
 
-        // 5. Update order total
-        $order->update([
-            'total' => $total,
-        ]);
-        $table->update([
-            'status' => 'reserved',
-        ]);
-        // 6. Return order
+            $total = 0;
+
+            foreach ($items as $item) {
+                $meal = $restaurant->meals()->whereKey($item['meal_id'])->firstOrFail();
+                $quantity = (int) ($item['quantity'] ?? 0);
+                $lineTotal = $meal->price * $quantity;
+                $total += $lineTotal;
+
+                OrderItem::create([
+                    'order_id' => $order->id,
+                    'meal_id' => $meal->id,
+                    'quantity' => $quantity,
+                    'unit_price' => $meal->price,
+                    'total_price' => $lineTotal,
+                    'notes' => (string) ($item['notes'] ?? ''),
+                ]);
+            }
+
+            $order->update(['total' => $total]);
+            $table->update(['status' => 'reserved']);
+
+            return $order->load('items');
+        });
+
         return response()->json([
             'message' => 'Order created successfully',
-            'order' => $order->load('items'),
+            'order' => $order,
         ], 201);
     }
- 
+
     public function recordView(Request $request, string $slug): JsonResponse
     {
         $restaurant = Restaurant::where('slug', $slug)->firstOrFail();
+        $mealId = $request->input('meal_id');
+
+        if ($mealId !== null && ! $restaurant->meals()->whereKey($mealId)->exists()) {
+            abort(422, 'The selected meal is not available for this restaurant.');
+        }
 
         MenuView::create([
             'restaurant_id' => $restaurant->id,
-            'meal_id' => $request->integer('meal_id'),
+            'meal_id' => $mealId,
             'language' => $request->query('lang', 'en'),
             'ip_address' => $request->ip(),
             'user_agent' => $request->userAgent(),
