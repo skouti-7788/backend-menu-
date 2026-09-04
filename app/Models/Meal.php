@@ -21,6 +21,7 @@ class Meal extends Model
         'image',
         'status',
         'featured',
+        'image_public_id',
     ];
 
     protected $casts = [
