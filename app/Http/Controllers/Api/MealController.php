@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Enums\MealStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Meal\MealRequest;
 use App\Http\Resources\MealResource;
@@ -13,6 +12,8 @@ use App\Services\TranslationService;
 use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class MealController extends Controller
 {
@@ -39,7 +40,11 @@ class MealController extends Controller
         $data = $request->safe()->except(['image']);
 
         $data['restaurant_id'] = $restaurant->id;
-        $data['featured'] = $request->boolean('featured', false);
+
+        $data['featured'] = $request->boolean(
+            'featured',
+            false
+        );
 
         /*
         |--------------------------------------------------------------------------
@@ -57,7 +62,9 @@ class MealController extends Controller
             );
 
             $data['image'] = $uploadedFile->getSecurePath();
-            $data['image_public_id'] = $uploadedFile->getPublicId();
+
+            $data['image_public_id'] =
+                $uploadedFile->getPublicId();
         }
 
         /*
@@ -66,9 +73,10 @@ class MealController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        MenuCategory::where('id', $data['category_id'])
-            ->where('restaurant_id', $restaurant->id)
-            ->firstOrFail();
+        $this->ensureCategoryBelongsToRestaurant(
+            $data['category_id'],
+            $restaurant->id
+        );
 
         /*
         |--------------------------------------------------------------------------
@@ -106,7 +114,10 @@ class MealController extends Controller
         */
 
         $mealModel = Meal::where('id', $meal)
-            ->where('restaurant_id', $restaurantModel->id)
+            ->where(
+                'restaurant_id',
+                $restaurantModel->id
+            )
             ->firstOrFail();
 
         $mealModel->load('translations');
@@ -123,12 +134,17 @@ class MealController extends Controller
                 $request->query('lang')
             );
 
-            $mealModel->name = $translation->name;
-            $mealModel->description = $translation->description;
+            $mealModel->name =
+                $translation->name;
+
+            $mealModel->description =
+                $translation->description;
 
             $mealModel->setRelation(
                 'translations',
-                $mealModel->translations->push($translation)
+                $mealModel->translations->push(
+                    $translation
+                )
             );
         }
 
@@ -157,7 +173,10 @@ class MealController extends Controller
         */
 
         $mealModel = Meal::where('id', $meal)
-            ->where('restaurant_id', $restaurantModel->id)
+            ->where(
+                'restaurant_id',
+                $restaurantModel->id
+            )
             ->firstOrFail();
 
         /*
@@ -183,18 +202,12 @@ class MealController extends Controller
 
             /*
             |--------------------------------------------------------------------------
-            | Delete old Cloudinary image
+            | Upload new image FIRST
             |--------------------------------------------------------------------------
-            */
-
-            $this->deleteCloudinaryImage(
-                $mealModel->image_public_id
-            );
-
-            /*
-            |--------------------------------------------------------------------------
-            | Upload new image
-            |--------------------------------------------------------------------------
+            |
+            | We upload the new image before deleting the old one.
+            | This prevents losing the old image if Cloudinary fails.
+            |
             */
 
             $uploadedFile = Cloudinary::upload(
@@ -205,8 +218,45 @@ class MealController extends Controller
                 ]
             );
 
-            $data['image'] = $uploadedFile->getSecurePath();
-            $data['image_public_id'] = $uploadedFile->getPublicId();
+            $newImage =
+                $uploadedFile->getSecurePath();
+
+            $newPublicId =
+                $uploadedFile->getPublicId();
+
+            /*
+            |--------------------------------------------------------------------------
+            | Delete old image AFTER successful upload
+            |--------------------------------------------------------------------------
+            */
+
+            if ($mealModel->image_public_id) {
+
+                // Old image is stored on Cloudinary
+
+                $this->deleteCloudinaryImage(
+                    $mealModel->image_public_id
+                );
+
+            } else {
+
+                // Old image is an old local image
+
+                $this->deleteLocalImage(
+                    $mealModel->image
+                );
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Save new Cloudinary image
+            |--------------------------------------------------------------------------
+            */
+
+            $data['image'] = $newImage;
+
+            $data['image_public_id'] =
+                $newPublicId;
         }
 
         /*
@@ -254,18 +304,34 @@ class MealController extends Controller
         */
 
         $mealModel = Meal::where('id', $meal)
-            ->where('restaurant_id', $restaurantModel->id)
+            ->where(
+                'restaurant_id',
+                $restaurantModel->id
+            )
             ->firstOrFail();
 
         /*
         |--------------------------------------------------------------------------
-        | Delete Cloudinary image
+        | Delete image
         |--------------------------------------------------------------------------
         */
 
-        $this->deleteCloudinaryImage(
-            $mealModel->image_public_id
-        );
+        if ($mealModel->image_public_id) {
+
+            // Cloudinary image
+
+            $this->deleteCloudinaryImage(
+                $mealModel->image_public_id
+            );
+
+        } else {
+
+            // Old local image
+
+            $this->deleteLocalImage(
+                $mealModel->image
+            );
+        }
 
         /*
         |--------------------------------------------------------------------------
@@ -333,10 +399,41 @@ class MealController extends Controller
         try {
             Cloudinary::destroy($publicId);
         } catch (\Throwable $e) {
-            \Log::error(
+            Log::error(
                 'Cloudinary image deletion failed.',
                 [
                     'public_id' => $publicId,
+                    'error' => $e->getMessage(),
+                ]
+            );
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Delete old local image
+    |--------------------------------------------------------------------------
+    */
+
+    protected function deleteLocalImage(
+        ?string $path
+    ): void {
+        if (
+            !$path ||
+            filter_var($path, FILTER_VALIDATE_URL)
+        ) {
+            return;
+        }
+
+        try {
+            if (Storage::disk('public')->exists($path)) {
+                Storage::disk('public')->delete($path);
+            }
+        } catch (\Throwable $e) {
+            Log::error(
+                'Local meal image deletion failed.',
+                [
+                    'path' => $path,
                     'error' => $e->getMessage(),
                 ]
             );
