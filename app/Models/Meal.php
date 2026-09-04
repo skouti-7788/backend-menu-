@@ -55,8 +55,26 @@ class Meal extends Model
         return $this->hasMany(MenuView::class);
     }
 
+    // protected function imageUrl(): Attribute
+    // {
+    //     return Attribute::make(get: fn () => $this->image ? Storage::disk('public')->url($this->image) : null);
+    // }
     protected function imageUrl(): Attribute
     {
-        return Attribute::make(get: fn () => $this->image ? Storage::disk('public')->url($this->image) : null);
-    }
+    return Attribute::make(
+        get: function () {
+            if (!$this->image) {
+                return null;
+            }
+
+            // Cloudinary URL
+            if (filter_var($this->image, FILTER_VALIDATE_URL)) {
+                return $this->image;
+            }
+
+            // Old local image
+            return Storage::disk('public')->url($this->image);
+        }
+    );
+}
 }
