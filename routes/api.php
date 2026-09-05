@@ -11,6 +11,8 @@ use App\Http\Middleware\EnsureUserHasRole;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Api\RestaurantTableController;
+use App\Http\Controllers\Api\RestaurantAppearanceController;
+
 Route::prefix('auth')->group(function () {
     Route::post('register', [AuthController::class, 'register']);
     Route::post('login', [AuthController::class, 'login']);
@@ -45,6 +47,15 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::middleware([EnsureUserHasRole::class.':admin'])->group(function () {
         Route::get('admin/users', [AuthController::class, 'listUsers']);
     });
+    Route::get(
+        '/restaurant/appearance',
+        [RestaurantAppearanceController::class, 'show']
+    );
+
+    Route::post(
+        '/restaurant/appearance',
+        [RestaurantAppearanceController::class, 'update']
+    );
 });
 
 Route::prefix('menu')->group(function () {
