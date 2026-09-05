@@ -10,6 +10,7 @@ use App\Models\MenuView;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Restaurant;
+use App\Models\RestaurantAppearance;
 use App\Models\RestaurantTable;
 use App\Services\TranslationService;
 use Illuminate\Http\JsonResponse;
@@ -46,6 +47,16 @@ class MenuController extends Controller
             ];
         });
 
+        $appearance = $restaurant->appearance()->firstOrCreate([
+            'restaurant_id' => $restaurant->id,
+        ], [
+            'primary_color' => '#D97706',
+            'secondary_color' => '#92400E',
+            'text_color' => '#1F2937',
+            'background_color' => '#FFFFFF',
+            'font_family' => 'Inter',
+        ]);
+
         return response()->json([
             'restaurant' => [
                 'id' => $restaurant->id,
@@ -60,6 +71,18 @@ class MenuController extends Controller
                 'logo_url' => $restaurant->logo_url,
                 'cover_image_url' => $restaurant->cover_image_url,
                 'menu_url' => $restaurant->menu_url,
+            ],
+            'appearance' => [
+                'id' => $appearance->id,
+                'restaurant_id' => $appearance->restaurant_id,
+                'logo' => $appearance->logo,
+                'header_image' => $appearance->header_image,
+                'background_image' => $appearance->background_image,
+                'primary_color' => $appearance->primary_color,
+                'secondary_color' => $appearance->secondary_color,
+                'text_color' => $appearance->text_color,
+                'background_color' => $appearance->background_color,
+                'font_family' => $appearance->font_family,
             ],
             'categories' => $restaurant->categories->map(fn ($category) => [
                 'id' => $category->id,

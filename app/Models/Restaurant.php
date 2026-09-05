@@ -65,6 +65,11 @@ class Restaurant extends Model
         return $this->hasMany(MenuView::class);
     }
 
+    public function appearance()
+    {
+        return $this->hasOne(RestaurantAppearance::class);
+    }
+
     protected function logoUrl(): Attribute
     {
         return Attribute::make(get: fn () => $this->logo ? Storage::disk('public')->url($this->logo) : null);
