@@ -8,7 +8,6 @@ use App\Models\RestaurantTable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use App\Http\Resources\RestaurantTableResource;
 
 class RestaurantTableController extends Controller
 {
@@ -18,10 +17,12 @@ class RestaurantTableController extends Controller
     public function index(Restaurant $restaurant)
     {
         $this->authorizeRestaurant($restaurant);
- 
-        return RestaurantTableResource::collection(
-            $restaurant->tables()->orderBy('number')->get()
-        );
+
+        $tables = $restaurant->tables()
+            ->orderBy('number')
+            ->get();
+        
+        return response()->json($tables);
     }
 
     /**
