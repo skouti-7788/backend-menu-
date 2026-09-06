@@ -40,7 +40,7 @@ class RestaurantAppearanceController extends Controller
         $restaurant = $this->resolveRestaurantForUser($request);
 
         $validated = $request->validate([
-            'logo' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp,avif', 'max:2048'],
+            'logo' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp,avif,ico', 'max:2048'],
             'header_image' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp,avif', 'max:4096'],
             'background_image' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp,avif', 'max:4096'],
             'primary_color' => ['nullable', 'string', 'max:20', 'regex:/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/'],
