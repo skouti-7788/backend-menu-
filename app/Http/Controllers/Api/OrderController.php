@@ -18,14 +18,13 @@ class OrderController extends Controller
 {
     public function index(Request $request, Restaurant $restaurant)
     {
-        $this->authorizeRestaurant($restaurant);
-
+        $this->requirePermission($restaurant, 'orders.view');
         return OrderResource::collection($restaurant->orders()->with('items')->latest()->get());
     }
 
     public function store(OrderRequest $request, Restaurant $restaurant): OrderResource
     {
-        $this->authorizeRestaurant($restaurant);
+        $this->requirePermission($restaurant, 'orders.add');
 
         $items = collect($request->input('items', []));
 
@@ -122,14 +121,14 @@ class OrderController extends Controller
     //     }
     public function show(Request $request, Order $order): OrderResource
     {
-        $this->authorizeRestaurant($order->restaurant);
+        $this->requirePermission($order->restaurant, 'orders.view');
 
         return new OrderResource($order->load('items'));
     }
 
     public function update(Request $request, Order $order): OrderResource
     {
-        $this->authorizeRestaurant($order->restaurant);
+        $this->requirePermission($order->restaurant, 'orders.update');
 
         $validated = $request->validate([
             'customer_name' => ['nullable', 'string', 'max:255'],
@@ -149,7 +148,7 @@ class OrderController extends Controller
 
     public function destroy(Order $order): JsonResponse
     {
-        $this->authorizeRestaurant($order->restaurant);
+        $this->requirePermission($order->restaurant, 'orders.delete');
 
         $order->items()->delete();
         $order->delete();
@@ -161,7 +160,7 @@ class OrderController extends Controller
 
     public function updateStatus(Request $request, Order $order): OrderResource
     {
-        $this->authorizeRestaurant($order->restaurant);
+        $this->requirePermission($order->restaurant, 'orders.update');
 
         $validated = $request->validate([
             'status' => ['required', 'in:pending,preparing,ready,completed,cancelled'],

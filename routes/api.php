@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Api\RestaurantTableController;
 use App\Http\Controllers\Api\RestaurantAppearanceController;
+use App\Http\Controllers\Api\StaffController;
 
 Route::prefix('auth')->group(function () {
     Route::post('register', [AuthController::class, 'register']);
@@ -24,7 +25,18 @@ Route::prefix('auth')->group(function () {
 
 // Current authenticated user
 Route::middleware('auth:sanctum')->get('user', function (Request $request) {
-    return response()->json(['user' => $request->user()]);
+    $user = $request->user();
+
+    $payload = [
+        'id' => $user->id,
+        'name' => $user->name,
+        'email' => $user->email,
+        'role' => $user->role,
+        'restaurant_id' => $user->restaurant_id,
+        'permissions' => $user->role === 'owner' ? [] : $user->permissions()->pluck('permission')->toArray(),
+    ];
+
+    return response()->json(['user' => $payload]);
 });
 
 Route::middleware(['auth:sanctum'])->group(function () {
@@ -46,6 +58,14 @@ Route::middleware(['auth:sanctum'])->group(function () {
    
     Route::middleware([EnsureUserHasRole::class.':admin'])->group(function () {
         Route::get('admin/users', [AuthController::class, 'listUsers']);
+    });
+    // Staff management (owners only)
+    Route::middleware([EnsureUserHasRole::class.':owner'])->group(function () {
+        Route::get('staff', [StaffController::class, 'index']);
+        Route::post('staff', [StaffController::class, 'store']);
+        Route::delete('staff/{staff}', [StaffController::class, 'destroy']);
+        Route::get('staff/{staff}/permissions', [StaffController::class, 'permissions']);
+        Route::put('staff/{staff}/permissions', [StaffController::class, 'updatePermissions']);
     });
     Route::get(
         '/restaurant/appearance',

@@ -12,8 +12,10 @@ class EnsureUserHasRole
     {
         $user = $request->user();
 
-        if (! $user || $user->role !== $role) {
-            return response()->json(['message' => 'Forbidden. Role not authorized.'], 403);
+        $allowed = array_map('trim', explode(',', $role));
+
+        if (! $user || ! in_array($user->role, $allowed, true)) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
         return $next($request);
