@@ -21,7 +21,7 @@ class MealController extends Controller
         Request $request,
         Restaurant $restaurant
     ) {
-        $this->authorizeRestaurant($restaurant);
+        $this->requirePermission($restaurant, 'meals.view');
 
         return MealResource::collection(
             $restaurant->meals()
@@ -35,7 +35,7 @@ class MealController extends Controller
         MealRequest $request,
         Restaurant $restaurant
     ): MealResource {
-        $this->authorizeRestaurant($restaurant);
+        $this->requirePermission($restaurant, 'meals.add');
 
         $data = $request->safe()->except(['image']);
 
@@ -105,7 +105,7 @@ class MealController extends Controller
 
         $restaurantModel = Restaurant::findOrFail($restaurant);
 
-        $this->authorizeRestaurant($restaurantModel);
+        $this->requirePermission($restaurantModel, 'meals.view');
 
         /*
         |--------------------------------------------------------------------------
@@ -164,7 +164,7 @@ class MealController extends Controller
 
         $restaurantModel = Restaurant::findOrFail($restaurant);
 
-        $this->authorizeRestaurant($restaurantModel);
+        $this->requirePermission($restaurantModel, 'meals.update');
 
         /*
         |--------------------------------------------------------------------------
@@ -295,7 +295,7 @@ class MealController extends Controller
 
         $restaurantModel = Restaurant::findOrFail($restaurant);
 
-        $this->authorizeRestaurant($restaurantModel);
+        $this->requirePermission($restaurantModel, 'meals.delete');
 
         /*
         |--------------------------------------------------------------------------

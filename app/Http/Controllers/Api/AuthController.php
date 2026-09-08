@@ -77,25 +77,36 @@ class AuthController extends Controller
 {
     public function register(RegisterRequest $request): JsonResponse
     {
+        // Force role to owner for registration
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => $request->password,
-            'role' => 'restaurant_manager',
+            'role' => 'owner',
         ]);
-        $user->restaurants()->create([
-                'name' => $request->name,
-                'email' => $request->email,
-                'address' => $request->address,
-                'phone' => $request->phone,
-                // slug كتتولد وحدها فـ Restaurant::booted()
-            ]);
-        // لا يتم إنشاء أي Restaurant هنا
+
+        // Create restaurant owned by this user
+        $restaurant = $user->restaurants()->create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'address' => $request->address,
+            'phone' => $request->phone,
+        ]);
+
+        // Set explicit restaurant_id on user (for tenant scoping)
+        $user->restaurant_id = $restaurant->id;
+        $user->save();
 
         $token = $user->createToken('api-token')->plainTextToken;
 
         return response()->json([
-            'user' => $user->load('restaurants'), // مصفوفة فارغة [] للمستخدم الجديد، ليست null
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role,
+                'restaurant_id' => $user->restaurant_id,
+            ],
             'token' => $token,
         ], 201);
     }
@@ -112,7 +123,14 @@ class AuthController extends Controller
         $token = $user->createToken('api-token')->plainTextToken;
 
         return response()->json([
-            'user' => $user->load('restaurants'),
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role,
+                'restaurant_id' => $user->restaurant_id ?? $user->restaurants()->first()?->id,
+                'permissions' => $user->role === 'owner' ? [] : $user->permissions()->pluck('permission')->toArray(),
+            ],
             'token' => $token,
         ]);
     }

@@ -16,7 +16,7 @@ class RestaurantTableController extends Controller
      */
     public function index(Restaurant $restaurant)
     {
-        $this->authorizeRestaurant($restaurant);
+        $this->requirePermission($restaurant, 'tables.view');
 
         $tables = $restaurant->tables()
             ->orderBy('number')
@@ -30,7 +30,7 @@ class RestaurantTableController extends Controller
      */
     public function store(Request $request, Restaurant $restaurant)
     {
-        $this->authorizeRestaurant($restaurant);
+        $this->requirePermission($restaurant, 'tables.add');
 
         $validated = $request->validate([
             'number' => [
@@ -63,7 +63,7 @@ class RestaurantTableController extends Controller
      */
     public function bulkStore(Request $request, Restaurant $restaurant)
     {
-        $this->authorizeRestaurant($restaurant);
+        $this->requirePermission($restaurant, 'tables.add');
 
         $validated = $request->validate([
             'count' => [
@@ -104,7 +104,7 @@ class RestaurantTableController extends Controller
      */
     public function show(Restaurant $restaurant, RestaurantTable $table)
     {
-        $this->authorizeRestaurant($restaurant);
+        $this->requirePermission($restaurant, 'tables.view');
         $this->authorizeTable($restaurant, $table);
 
         return response()->json($table);
@@ -118,7 +118,7 @@ class RestaurantTableController extends Controller
         Restaurant $restaurant,
         RestaurantTable $table
     ) {
-        $this->authorizeRestaurant($restaurant);
+        $this->requirePermission($restaurant, 'tables.update');
         $this->authorizeTable($restaurant, $table);
 
         $validated = $request->validate([
@@ -156,7 +156,7 @@ class RestaurantTableController extends Controller
      */
     public function destroy(Restaurant $restaurant, RestaurantTable $table)
     {
-        $this->authorizeRestaurant($restaurant);
+        $this->requirePermission($restaurant, 'tables.delete');
         $this->authorizeTable($restaurant, $table);
 
         $table->delete();
@@ -171,9 +171,17 @@ class RestaurantTableController extends Controller
      */
     private function authorizeRestaurant(Restaurant $restaurant): void
     {
-        if ($restaurant->user_id !== Auth::id()) {
-            abort(403, 'Unauthorized restaurant.');
+        $user = auth()->user();
+
+        if ($restaurant->user_id === $user->id) {
+            return;
         }
+
+        if (($user->role === 'staff' || $user->role === 'owner') && isset($user->restaurant_id) && $user->restaurant_id == $restaurant->id) {
+            return;
+        }
+
+        abort(403, 'Unauthorized restaurant.');
     }
 
     /**

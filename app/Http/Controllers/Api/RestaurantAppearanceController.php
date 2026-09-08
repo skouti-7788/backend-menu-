@@ -27,6 +27,8 @@ class RestaurantAppearanceController extends Controller
     {
         $restaurant = $this->resolveRestaurantForUser($request);
 
+        $this->requirePermission($restaurant, 'appearance.view');
+
         $appearance = $restaurant->appearance()->firstOrCreate(
             ['restaurant_id' => $restaurant->id],
             $this->defaultValues()
@@ -38,6 +40,8 @@ class RestaurantAppearanceController extends Controller
     public function update(Request $request)
     {
         $restaurant = $this->resolveRestaurantForUser($request);
+
+        $this->requirePermission($restaurant, 'appearance.update');
 
         $validated = $request->validate([
             'logo' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp,avif', 'max:2048'],
@@ -110,13 +114,7 @@ class RestaurantAppearanceController extends Controller
 
     protected function resolveRestaurantForUser(Request $request): Restaurant
     {
-        $restaurant = $request->user()?->restaurants()->first();
-
-        if (! $restaurant) {
-            abort(404, 'Restaurant not found for this user.');
-        }
-
-        return $restaurant;
+        return parent::resolveRestaurantForUser($request);
     }
 
     protected function defaultValues(): array
