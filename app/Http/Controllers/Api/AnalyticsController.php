@@ -8,13 +8,29 @@ use Illuminate\Http\JsonResponse;
 
 class AnalyticsController extends Controller
 {
-    public function restaurantOverview(Restaurant $restaurant): JsonResponse
-    {
-        $this->authorizeRestaurant($restaurant);
+    /**
+     * Get restaurant analytics overview.
+     */
+    public function restaurantOverview(
+        Restaurant $restaurant
+    ): JsonResponse {
+        $this->requirePermission(
+            $restaurant,
+            'dashboard.view'
+        );
 
-        $ordersCount = $restaurant->orders()->count();
-        $viewsCount = $restaurant->views()->count();
-        $featuredMeals = $restaurant->meals()->where('featured', true)->count();
+        $ordersCount = $restaurant
+            ->orders()
+            ->count();
+
+        $viewsCount = $restaurant
+            ->views()
+            ->count();
+
+        $featuredMeals = $restaurant
+            ->meals()
+            ->where('featured', true)
+            ->count();
 
         return response()->json([
             'restaurant_id' => $restaurant->id,
@@ -24,39 +40,57 @@ class AnalyticsController extends Controller
         ]);
     }
 
-    public function popularMeals(Restaurant $restaurant): JsonResponse
-    {
-        $this->authorizeRestaurant($restaurant);
+    /**
+     * Get the most popular meals.
+     */
+    public function popularMeals(
+        Restaurant $restaurant
+    ): JsonResponse {
+        $this->requirePermission(
+            $restaurant,
+            'dashboard.view'
+        );
 
-        $meals = $restaurant->meals()
+        $meals = $restaurant
+            ->meals()
             ->select('meals.*')
-            ->withCount(['orderItems as total_ordered' => fn ($query) => $query->selectRaw('coalesce(sum(quantity), 0)')])
+            ->withCount([
+                'orderItems as total_ordered' => function ($query) {
+                    $query->selectRaw(
+                        'COALESCE(SUM(quantity), 0)'
+                    );
+                },
+            ])
             ->orderByDesc('total_ordered')
             ->limit(10)
             ->get();
 
-        return response()->json(['popular_meals' => $meals]);
+        return response()->json([
+            'popular_meals' => $meals,
+        ]);
     }
 
-    public function menuViews(Restaurant $restaurant): JsonResponse
-    {
-        $this->authorizeRestaurant($restaurant);
+    /**
+     * Get menu views grouped by language.
+     */
+    public function menuViews(
+        Restaurant $restaurant
+    ): JsonResponse {
+        $this->requirePermission(
+            $restaurant,
+            'dashboard.view'
+        );
 
-        $viewsPerLanguage = $restaurant->views()
+        $viewsPerLanguage = $restaurant
+            ->views()
             ->select('language')
-            ->selectRaw('count(*) as total')
+            ->selectRaw('COUNT(*) as total')
             ->groupBy('language')
             ->get();
 
-        return response()->json(['menu_views' => $viewsPerLanguage]);
-    }
-
-    protected function authorizeRestaurant(Restaurant $restaurant): void
-    {
-        $user = auth()->user();
-
-        if ($user->role !== 'admin' && $restaurant->user_id !== $user->id) {
-            abort(403, 'You are not authorized to view analytics for this restaurant.');
-        }
+        return response()->json([
+            'menu_views' => $viewsPerLanguage,
+        ]);
     }
 }
+ 

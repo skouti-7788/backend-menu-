@@ -16,9 +16,18 @@ return new class extends Migration
 
         // Backfill existing owner relationship: if a restaurant exists with user_id, set user's restaurant_id
         if (Schema::hasTable('restaurants')) {
-            \Illuminate\Support\Facades\DB::statement(
-                'UPDATE users u JOIN restaurants r ON r.user_id = u.id SET u.restaurant_id = r.id WHERE u.restaurant_id IS NULL'
-            );
+            $connection = \Illuminate\Support\Facades\DB::getDriverName();
+
+            if ($connection === 'sqlite') {
+                // SQLite doesn't support JOIN in UPDATE the same way. Use a subquery.
+                \Illuminate\Support\Facades\DB::statement(
+                    'UPDATE users SET restaurant_id = (SELECT id FROM restaurants WHERE restaurants.user_id = users.id) WHERE restaurant_id IS NULL'
+                );
+            } else {
+                \Illuminate\Support\Facades\DB::statement(
+                    'UPDATE users u JOIN restaurants r ON r.user_id = u.id SET u.restaurant_id = r.id WHERE u.restaurant_id IS NULL'
+                );
+            }
         }
     }
 

@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Restaurant;
-use App\Models\RestaurantAppearance;
 use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -12,6 +11,9 @@ use Illuminate\Validation\ValidationException;
 
 class RestaurantAppearanceController extends Controller
 {
+    /**
+     * Allowed font families.
+     */
     private const FONT_FAMILY_WHITELIST = [
         'Inter',
         'Poppins',
@@ -23,38 +25,111 @@ class RestaurantAppearanceController extends Controller
         'Merriweather',
     ];
 
+    /**
+     * Get restaurant appearance.
+     */
     public function show(Request $request)
     {
         $restaurant = $this->resolveRestaurantForUser($request);
 
-        $this->requirePermission($restaurant, 'appearance.view');
+        $this->requirePermission(
+            $restaurant,
+            'appearance.view'
+        );
 
         $appearance = $restaurant->appearance()->firstOrCreate(
             ['restaurant_id' => $restaurant->id],
             $this->defaultValues()
         );
 
-        return response()->json($appearance->fresh());
+        return response()->json(
+            $appearance->fresh()
+        );
     }
 
+    /**
+     * Update restaurant appearance.
+     */
     public function update(Request $request)
     {
         $restaurant = $this->resolveRestaurantForUser($request);
 
-        $this->requirePermission($restaurant, 'appearance.update');
+        $this->requirePermission(
+            $restaurant,
+            'appearance.update'
+        );
 
         $validated = $request->validate([
-            'logo' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp,avif', 'max:2048'],
-            'header_image' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp,avif', 'max:4096'],
-            'background_image' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp,avif', 'max:4096'],
-            'primary_color' => ['nullable', 'string', 'max:20', 'regex:/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/'],
-            'secondary_color' => ['nullable', 'string', 'max:20', 'regex:/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/'],
-            'text_color' => ['nullable', 'string', 'max:20', 'regex:/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/'],
-            'background_color' => ['nullable', 'string', 'max:20', 'regex:/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/'],
-            'font_family' => ['nullable', 'string', 'max:100', 'in:' . implode(',', self::FONT_FAMILY_WHITELIST)],
-            'remove_logo' => ['nullable', 'boolean'],
-            'remove_header_image' => ['nullable', 'boolean'],
-            'remove_background_image' => ['nullable', 'boolean'],
+            'logo' => [
+                'nullable',
+                'image',
+                'mimes:jpeg,jpg,png,webp,avif',
+                'max:2048',
+            ],
+
+            'header_image' => [
+                'nullable',
+                'image',
+                'mimes:jpeg,jpg,png,webp,avif',
+                'max:4096',
+            ],
+
+            'background_image' => [
+                'nullable',
+                'image',
+                'mimes:jpeg,jpg,png,webp,avif',
+                'max:4096',
+            ],
+
+            'primary_color' => [
+                'nullable',
+                'string',
+                'max:20',
+                'regex:/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/',
+            ],
+
+            'secondary_color' => [
+                'nullable',
+                'string',
+                'max:20',
+                'regex:/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/',
+            ],
+
+            'text_color' => [
+                'nullable',
+                'string',
+                'max:20',
+                'regex:/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/',
+            ],
+
+            'background_color' => [
+                'nullable',
+                'string',
+                'max:20',
+                'regex:/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/',
+            ],
+
+            'font_family' => [
+                'nullable',
+                'string',
+                'max:100',
+                'in:' . implode(',', self::FONT_FAMILY_WHITELIST),
+            ],
+
+            'remove_logo' => [
+                'nullable',
+                'boolean',
+            ],
+
+            'remove_header_image' => [
+                'nullable',
+                'boolean',
+            ],
+
+            'remove_background_image' => [
+                'nullable',
+                'boolean',
+            ],
         ]);
 
         $appearance = $restaurant->appearance()->firstOrCreate(
@@ -62,46 +137,130 @@ class RestaurantAppearanceController extends Controller
             $this->defaultValues()
         );
 
-        foreach (['logo', 'header_image', 'background_image'] as $field) {
+        /*
+        |--------------------------------------------------------------------------
+        | Images
+        |--------------------------------------------------------------------------
+        */
+
+        foreach ([
+            'logo',
+            'header_image',
+            'background_image',
+        ] as $field) {
+
             $removeFlag = 'remove_' . $field;
 
+            /*
+            |--------------------------------------------------------------------------
+            | Remove existing image
+            |--------------------------------------------------------------------------
+            */
+
             if ($request->boolean($removeFlag)) {
-                if ($appearance->{$field}) {
-                    $this->deleteCloudinaryImageByUrl($appearance->{$field});
-                }
+
+                $oldImage = $appearance->{$field};
 
                 $validated[$field] = null;
+
+                $appearance->fill([
+                    $field => null,
+                ]);
+
+                $appearance->save();
+
+                if ($oldImage) {
+                    $this->deleteCloudinaryImageByUrl($oldImage);
+                }
+
                 continue;
             }
 
+            /*
+            |--------------------------------------------------------------------------
+            | Upload new image
+            |--------------------------------------------------------------------------
+            */
+
             if ($request->hasFile($field)) {
+
                 try {
-                    if ($appearance->{$field}) {
-                        $this->deleteCloudinaryImageByUrl($appearance->{$field});
-                    }
+
+                    $oldImage = $appearance->{$field};
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Upload new image FIRST.
+                    | We don't delete the old image before a successful upload.
+                    |--------------------------------------------------------------------------
+                    */
 
                     $uploadedFile = Cloudinary::upload(
-                        $request->file($field)->getRealPath(),
+                        $request
+                            ->file($field)
+                            ->getRealPath(),
                         [
-                            'folder' => 'menu-online/restaurants/appearance',
+                            'folder' => sprintf(
+                                'menu-online/restaurants/%d/appearance',
+                                $restaurant->id
+                            ),
                             'resource_type' => 'image',
                         ]
                     );
 
-                    $validated[$field] = $uploadedFile->getSecurePath();
+                    $newImageUrl = $uploadedFile->getSecurePath();
+
+                    if (! $newImageUrl) {
+                        throw new \RuntimeException(
+                            'Cloudinary did not return a secure URL.'
+                        );
+                    }
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Save new URL
+                    |--------------------------------------------------------------------------
+                    */
+
+                    $validated[$field] = $newImageUrl;
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Delete old image AFTER successful upload.
+                    |--------------------------------------------------------------------------
+                    */
+
+                    if ($oldImage) {
+                        $this->deleteCloudinaryImageByUrl(
+                            $oldImage
+                        );
+                    }
+
                 } catch (\Throwable $e) {
-                    Log::error('Cloudinary appearance image upload failed.', [
-                        'field' => $field,
-                        'restaurant_id' => $restaurant->id,
-                        'error' => $e->getMessage(),
-                    ]);
+
+                    Log::error(
+                        'Cloudinary appearance image upload failed.',
+                        [
+                            'field' => $field,
+                            'restaurant_id' => $restaurant->id,
+                            'error' => $e->getMessage(),
+                        ]
+                    );
 
                     throw ValidationException::withMessages([
-                        $field => ['The image could not be uploaded. Please try another file.'],
+                        $field => [
+                            'The image could not be uploaded. Please try another file.',
+                        ],
                     ]);
                 }
             }
         }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Save appearance
+        |--------------------------------------------------------------------------
+        */
 
         $appearance->fill($validated);
         $appearance->save();
@@ -112,11 +271,9 @@ class RestaurantAppearanceController extends Controller
         ]);
     }
 
-    protected function resolveRestaurantForUser(Request $request): Restaurant
-    {
-        return parent::resolveRestaurantForUser($request);
-    }
-
+    /**
+     * Default appearance values.
+     */
     protected function defaultValues(): array
     {
         return [
@@ -128,45 +285,100 @@ class RestaurantAppearanceController extends Controller
         ];
     }
 
-    protected function deleteCloudinaryImageByUrl(?string $url): void
-    {
+    /**
+     * Delete Cloudinary image using its URL.
+     */
+    protected function deleteCloudinaryImageByUrl(
+        ?string $url
+    ): void {
+
         if (! $url) {
             return;
         }
 
-        $publicId = $this->extractCloudinaryPublicId($url);
+        $publicId = $this->extractCloudinaryPublicId(
+            $url
+        );
 
         if (! $publicId) {
+            Log::warning(
+                'Unable to extract Cloudinary public ID.',
+                [
+                    'url' => $url,
+                ]
+            );
+
             return;
         }
 
         try {
+
             Cloudinary::destroy($publicId);
+
         } catch (\Throwable $e) {
-            Log::error('Cloudinary appearance image deletion failed.', [
-                'url' => $url,
-                'public_id' => $publicId,
-                'error' => $e->getMessage(),
-            ]);
+
+            Log::error(
+                'Cloudinary appearance image deletion failed.',
+                [
+                    'url' => $url,
+                    'public_id' => $publicId,
+                    'error' => $e->getMessage(),
+                ]
+            );
         }
     }
 
-    protected function extractCloudinaryPublicId(string $url): ?string
-    {
+    /**
+     * Extract Cloudinary public ID from URL.
+     */
+    protected function extractCloudinaryPublicId(
+        string $url
+    ): ?string {
+
         $parsed = parse_url($url);
 
         if (! isset($parsed['path'])) {
             return null;
         }
 
-        $path = ltrim($parsed['path'], '/');
+        $path = ltrim(
+            $parsed['path'],
+            '/'
+        );
 
-        if (preg_match('/^(?:image|video|raw|auto)\/upload\/(?:v\d+\/)?(.+)$/', $path, $matches)) {
+        /*
+        |--------------------------------------------------------------------------
+        | Example:
+        |
+        | image/upload/v123456/menu-online/restaurants/1/appearance/logo.png
+        |
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            preg_match(
+                '/^(?:image|video|raw|auto)\/upload\/(?:v\d+\/)?(.+)$/',
+                $path,
+                $matches
+            )
+        ) {
+
             $publicId = $matches[1];
 
-            return preg_replace('/\.[^.]+$/', '', $publicId);
+            /*
+            |--------------------------------------------------------------------------
+            | Remove extension.
+            |--------------------------------------------------------------------------
+            */
+
+            return preg_replace(
+                '/\.[^.]+$/',
+                '',
+                $publicId
+            );
         }
 
         return null;
     }
 }
+ 

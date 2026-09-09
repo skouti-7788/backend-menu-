@@ -6,437 +6,411 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Meal\MealRequest;
 use App\Http\Resources\MealResource;
 use App\Models\Meal;
-use App\Models\MenuCategory;
 use App\Models\Restaurant;
-use App\Services\TranslationService;
-use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class MealController extends Controller
 {
+    /**
+     * =====================================================
+     * LIST MEALS
+     * =====================================================
+     *
+     * Owner:
+     *   -> accès automatique
+     *
+     * Staff:
+     *   -> meals.view
+     */
     public function index(
         Request $request,
         Restaurant $restaurant
     ) {
-        $this->requirePermission($restaurant, 'meals.view');
-
-        return MealResource::collection(
-            $restaurant->meals()
-                ->with('translations')
-                ->latest()
-                ->get()
+        $this->requirePermission(
+            $restaurant,
+            'meals.view'
         );
+
+        $meals = $restaurant
+            ->meals()
+            ->with('translations')
+            ->latest()
+            ->get();
+
+        return MealResource::collection($meals);
     }
 
+    /**
+     * =====================================================
+     * CREATE MEAL
+     * =====================================================
+     *
+     * Permission:
+     *   meals.add
+     */
     public function store(
         MealRequest $request,
         Restaurant $restaurant
     ): MealResource {
-        $this->requirePermission($restaurant, 'meals.add');
-
-        $data = $request->safe()->except(['image']);
-
-        $data['restaurant_id'] = $restaurant->id;
-
-        $data['featured'] = $request->boolean(
-            'featured',
-            false
+        $this->requirePermission(
+            $restaurant,
+            'meals.add'
         );
 
-        /*
-        |--------------------------------------------------------------------------
-        | Upload image to Cloudinary
-        |--------------------------------------------------------------------------
-        */
+        $data = $request
+            ->safe()
+            ->except(['image']);
 
+        /**
+         * Always force restaurant_id
+         * from route restaurant.
+         */
+        $data['restaurant_id'] =
+            $restaurant->id;
+
+        /**
+         * Upload image
+         */
         if ($request->hasFile('image')) {
-            $uploadedFile = Cloudinary::upload(
-                $request->file('image')->getRealPath(),
-                [
-                    'folder' => 'menu-online/meals',
-                    'resource_type' => 'image',
-                ]
-            );
-
-            $data['image'] = $uploadedFile->getSecurePath();
-
-            $data['image_public_id'] =
-                $uploadedFile->getPublicId();
+            $data['image'] =
+                $request
+                    ->file('image')
+                    ->store(
+                        'meals',
+                        'public'
+                    );
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Verify category belongs to restaurant
-        |--------------------------------------------------------------------------
-        */
-
-        $this->ensureCategoryBelongsToRestaurant(
-            $data['category_id'],
-            $restaurant->id
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | Create meal
-        |--------------------------------------------------------------------------
-        */
 
         $meal = Meal::create($data);
 
-        return new MealResource(
-            $meal->load('translations')
-        );
+        /**
+         * Load translations
+         * for API resource.
+         */
+        $meal->load('translations');
+
+        return new MealResource($meal);
     }
 
+    /**
+     * =====================================================
+     * SHOW MEAL
+     * =====================================================
+     *
+     * Permission:
+     *   meals.view
+     *
+     * Important:
+     * The meal MUST belong to the restaurant
+     * from the URL.
+     */
     public function show(
         Request $request,
-        string $restaurant,
-        string $meal,
-        TranslationService $translator
+        Restaurant $restaurant,
+        Meal $meal
     ): MealResource {
-        /*
-        |--------------------------------------------------------------------------
-        | Find restaurant
-        |--------------------------------------------------------------------------
-        */
+        $this->requirePermission(
+            $restaurant,
+            'meals.view'
+        );
 
-        $restaurantModel = Restaurant::findOrFail($restaurant);
+        /**
+         * Security:
+         * prevent accessing a meal
+         * belonging to another restaurant.
+         */
+        $this->ensureMealBelongsToRestaurant(
+            $meal,
+            $restaurant
+        );
 
-        $this->requirePermission($restaurantModel, 'meals.view');
+        $meal->load('translations');
 
-        /*
-        |--------------------------------------------------------------------------
-        | Find meal belonging to restaurant
-        |--------------------------------------------------------------------------
-        */
-
-        $mealModel = Meal::where('id', $meal)
-            ->where(
-                'restaurant_id',
-                $restaurantModel->id
-            )
-            ->firstOrFail();
-
-        $mealModel->load('translations');
-
-        /*
-        |--------------------------------------------------------------------------
-        | Translation
-        |--------------------------------------------------------------------------
-        */
-
-        if ($request->filled('lang')) {
-            $translation = $translator->translateMeal(
-                $mealModel,
-                $request->query('lang')
-            );
-
-            $mealModel->name =
-                $translation->name;
-
-            $mealModel->description =
-                $translation->description;
-
-            $mealModel->setRelation(
-                'translations',
-                $mealModel->translations->push(
-                    $translation
-                )
-            );
-        }
-
-        return new MealResource($mealModel);
+        return new MealResource($meal);
     }
 
+    /**
+     * =====================================================
+     * UPDATE MEAL
+     * =====================================================
+     *
+     * Permission:
+     *   meals.update
+     */
     public function update(
         MealRequest $request,
-        string $restaurant,
-        string $meal
+        Restaurant $restaurant,
+        Meal $meal
     ): MealResource {
-        /*
-        |--------------------------------------------------------------------------
-        | Find restaurant
-        |--------------------------------------------------------------------------
-        */
-
-        $restaurantModel = Restaurant::findOrFail($restaurant);
-
-        $this->requirePermission($restaurantModel, 'meals.update');
-
-        /*
-        |--------------------------------------------------------------------------
-        | Find meal belonging to restaurant
-        |--------------------------------------------------------------------------
-        */
-
-        $mealModel = Meal::where('id', $meal)
-            ->where(
-                'restaurant_id',
-                $restaurantModel->id
-            )
-            ->firstOrFail();
-
-        /*
-        |--------------------------------------------------------------------------
-        | Get validated data
-        |--------------------------------------------------------------------------
-        */
-
-        $data = $request->safe()->except(['image']);
-
-        $data['featured'] = $request->boolean(
-            'featured',
-            $mealModel->featured
+        $this->requirePermission(
+            $restaurant,
+            'meals.update'
         );
 
-        /*
-        |--------------------------------------------------------------------------
-        | Replace image
-        |--------------------------------------------------------------------------
-        */
+        /**
+         * Security:
+         * ensure the meal belongs
+         * to the current restaurant.
+         */
+        $this->ensureMealBelongsToRestaurant(
+            $meal,
+            $restaurant
+        );
 
+        $data = $request
+            ->safe()
+            ->except(['image']);
+
+        /**
+         * Replace image
+         */
         if ($request->hasFile('image')) {
 
-            /*
-            |--------------------------------------------------------------------------
-            | Upload new image FIRST
-            |--------------------------------------------------------------------------
-            |
-            | We upload the new image before deleting the old one.
-            | This prevents losing the old image if Cloudinary fails.
-            |
-            */
-
-            $uploadedFile = Cloudinary::upload(
-                $request->file('image')->getRealPath(),
-                [
-                    'folder' => 'menu-online/meals',
-                    'resource_type' => 'image',
-                ]
+            /**
+             * Delete old image
+             */
+            $this->deleteFile(
+                $meal->image
             );
 
-            $newImage =
-                $uploadedFile->getSecurePath();
-
-            $newPublicId =
-                $uploadedFile->getPublicId();
-
-            /*
-            |--------------------------------------------------------------------------
-            | Delete old image AFTER successful upload
-            |--------------------------------------------------------------------------
-            */
-
-            if ($mealModel->image_public_id) {
-
-                // Old image is stored on Cloudinary
-
-                $this->deleteCloudinaryImage(
-                    $mealModel->image_public_id
-                );
-
-            } else {
-
-                // Old image is an old local image
-
-                $this->deleteLocalImage(
-                    $mealModel->image
-                );
-            }
-
-            /*
-            |--------------------------------------------------------------------------
-            | Save new Cloudinary image
-            |--------------------------------------------------------------------------
-            */
-
-            $data['image'] = $newImage;
-
-            $data['image_public_id'] =
-                $newPublicId;
+            /**
+             * Store new image
+             */
+            $data['image'] =
+                $request
+                    ->file('image')
+                    ->store(
+                        'meals',
+                        'public'
+                    );
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Verify category belongs to restaurant
-        |--------------------------------------------------------------------------
-        */
+        $meal->update($data);
 
-        $this->ensureCategoryBelongsToRestaurant(
-            $data['category_id'],
-            $restaurantModel->id
-        );
+        $meal->refresh();
 
-        /*
-        |--------------------------------------------------------------------------
-        | Update meal
-        |--------------------------------------------------------------------------
-        */
+        $meal->load('translations');
 
-        $mealModel->update($data);
-
-        return new MealResource(
-            $mealModel->load('translations')
-        );
+        return new MealResource($meal);
     }
 
+    /**
+     * =====================================================
+     * DELETE MEAL
+     * =====================================================
+     *
+     * Permission:
+     *   meals.delete
+     */
     public function destroy(
-        string $restaurant,
-        string $meal
+        Request $request,
+        Restaurant $restaurant,
+        Meal $meal
     ): JsonResponse {
-        /*
-        |--------------------------------------------------------------------------
-        | Find restaurant
-        |--------------------------------------------------------------------------
-        */
+        $this->requirePermission(
+            $restaurant,
+            'meals.delete'
+        );
 
-        $restaurantModel = Restaurant::findOrFail($restaurant);
+        /**
+         * Security:
+         * ensure this meal belongs
+         * to this restaurant.
+         */
+        $this->ensureMealBelongsToRestaurant(
+            $meal,
+            $restaurant
+        );
 
-        $this->requirePermission($restaurantModel, 'meals.delete');
+        /**
+         * Delete image
+         */
+        $this->deleteFile(
+            $meal->image
+        );
 
-        /*
-        |--------------------------------------------------------------------------
-        | Find meal belonging to restaurant
-        |--------------------------------------------------------------------------
-        */
-
-        $mealModel = Meal::where('id', $meal)
-            ->where(
-                'restaurant_id',
-                $restaurantModel->id
-            )
-            ->firstOrFail();
-
-        /*
-        |--------------------------------------------------------------------------
-        | Delete image
-        |--------------------------------------------------------------------------
-        */
-
-        if ($mealModel->image_public_id) {
-
-            // Cloudinary image
-
-            $this->deleteCloudinaryImage(
-                $mealModel->image_public_id
-            );
-
-        } else {
-
-            // Old local image
-
-            $this->deleteLocalImage(
-                $mealModel->image
-            );
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Delete meal
-        |--------------------------------------------------------------------------
-        */
-
-        $mealModel->delete();
+        /**
+         * Delete meal
+         */
+        $meal->delete();
 
         return response()->json([
-            'message' => 'Meal deleted successfully.',
+            'message' =>
+                'Meal deleted successfully.'
         ]);
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Authorization
-    |--------------------------------------------------------------------------
-    */
-
-    protected function authorizeRestaurant(
-        Restaurant $restaurant
+    /**
+     * =====================================================
+     * REQUIRE PERMISSION
+     * =====================================================
+     *
+     * Owner:
+     *   -> all permissions
+     *
+     * Admin:
+     *   -> all permissions
+     *
+     * Staff:
+     *   -> only assigned permissions
+     *
+     * Restaurant manager:
+     *   -> can manage his restaurant
+     */
+    protected function requirePermission(
+        Restaurant $restaurant,
+        string $permission
     ): void {
         $user = auth()->user();
 
-        if (
-            $user->role !== 'admin' &&
-            $restaurant->user_id !== $user->id
-        ) {
+        /**
+         * No authenticated user
+         */
+        if (! $user) {
             abort(
-                403,
-                'You are not authorized to manage this restaurant.'
+                401,
+                'Unauthenticated.'
             );
         }
-    }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Category validation
-    |--------------------------------------------------------------------------
-    */
-
-    protected function ensureCategoryBelongsToRestaurant(
-        int $categoryId,
-        int $restaurantId
-    ): void {
-        MenuCategory::where('id', $categoryId)
-            ->where('restaurant_id', $restaurantId)
-            ->firstOrFail();
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Delete Cloudinary image
-    |--------------------------------------------------------------------------
-    */
-
-    protected function deleteCloudinaryImage(
-        ?string $publicId
-    ): void {
-        if (!$publicId) {
+        /**
+         * Admin has full access.
+         */
+        if ($user->isAdmin()) {
             return;
         }
 
-        try {
-            Cloudinary::destroy($publicId);
-        } catch (\Throwable $e) {
-            Log::error(
-                'Cloudinary image deletion failed.',
-                [
-                    'public_id' => $publicId,
-                    'error' => $e->getMessage(),
-                ]
+        /**
+         * IMPORTANT:
+         *
+         * The restaurant must belong
+         * to the authenticated user.
+         *
+         * Owner:
+         * restaurant.user_id = user.id
+         *
+         * Staff:
+         * restaurant_id = user.restaurant_id
+         */
+        if (
+            $user->role === 'owner'
+        ) {
+            if (
+                (int) $restaurant->user_id !==
+                (int) $user->id
+            ) {
+                abort(
+                    403,
+                    'You are not authorized to manage this restaurant.'
+                );
+            }
+
+            return;
+        }
+
+        /**
+         * Staff access
+         */
+        if (
+            $user->role === 'staff'
+        ) {
+            if (
+                (int) $user->restaurant_id !==
+                (int) $restaurant->id
+            ) {
+                abort(
+                    403,
+                    'You are not authorized to manage this restaurant.'
+                );
+            }
+
+            /**
+             * Check assigned permission.
+             */
+            if (
+                ! $user->hasPermission(
+                    $permission
+                )
+            ) {
+                abort(
+                    403,
+                    'You do not have permission to perform this action.'
+                );
+            }
+
+            return;
+        }
+
+        /**
+         * Restaurant manager
+         *
+         * In case you still use this role.
+         */
+        if (
+            $user->role ===
+            'restaurant_manager'
+        ) {
+            if (
+                (int) $restaurant->user_id !==
+                (int) $user->id
+            ) {
+                abort(
+                    403,
+                    'You are not authorized to manage this restaurant.'
+                );
+            }
+
+            return;
+        }
+
+        /**
+         * Any other role
+         * is forbidden.
+         */
+        abort(
+            403,
+            'You are not authorized to manage this restaurant.'
+        );
+    }
+
+    /**
+     * =====================================================
+     * ENSURE MEAL BELONGS TO RESTAURANT
+     * =====================================================
+     */
+    protected function ensureMealBelongsToRestaurant(
+        Meal $meal,
+        Restaurant $restaurant
+    ): void {
+        if (
+            (int) $meal->restaurant_id !==
+            (int) $restaurant->id
+        ) {
+            abort(
+                404,
+                'Meal not found.'
             );
         }
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Delete old local image
-    |--------------------------------------------------------------------------
-    */
-
-    protected function deleteLocalImage(
+    /**
+     * =====================================================
+     * DELETE FILE
+     * =====================================================
+     */
+    protected function deleteFile(
         ?string $path
     ): void {
         if (
-            !$path ||
-            filter_var($path, FILTER_VALIDATE_URL)
+            $path &&
+            Storage::disk('public')->exists($path)
         ) {
-            return;
-        }
-
-        try {
-            if (Storage::disk('public')->exists($path)) {
-                Storage::disk('public')->delete($path);
-            }
-        } catch (\Throwable $e) {
-            Log::error(
-                'Local meal image deletion failed.',
-                [
-                    'path' => $path,
-                    'error' => $e->getMessage(),
-                ]
+            Storage::disk('public')->delete(
+                $path
             );
         }
     }
 }
+ 

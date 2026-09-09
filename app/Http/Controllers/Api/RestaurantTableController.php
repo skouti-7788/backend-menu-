@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\Restaurant;
 use App\Models\RestaurantTable;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class RestaurantTableController extends Controller
@@ -16,21 +15,29 @@ class RestaurantTableController extends Controller
      */
     public function index(Restaurant $restaurant)
     {
-        $this->requirePermission($restaurant, 'tables.view');
+        $this->requirePermission(
+            $restaurant,
+            'tables.view'
+        );
 
         $tables = $restaurant->tables()
             ->orderBy('number')
             ->get();
-        
+
         return response()->json($tables);
     }
 
     /**
      * Create a new table.
      */
-    public function store(Request $request, Restaurant $restaurant)
-    {
-        $this->requirePermission($restaurant, 'tables.add');
+    public function store(
+        Request $request,
+        Restaurant $restaurant
+    ) {
+        $this->requirePermission(
+            $restaurant,
+            'tables.add'
+        );
 
         $validated = $request->validate([
             'number' => [
@@ -39,6 +46,7 @@ class RestaurantTableController extends Controller
                 'min:1',
                 'unique:restaurant_tables,number,NULL,id,restaurant_id,' . $restaurant->id,
             ],
+
             'name' => [
                 'nullable',
                 'string',
@@ -48,7 +56,8 @@ class RestaurantTableController extends Controller
 
         $table = $restaurant->tables()->create([
             'number' => $validated['number'],
-            'name' => $validated['name'] ?? 'Table ' . $validated['number'],
+            'name' => $validated['name']
+                ?? 'Table ' . $validated['number'],
             'status' => 'available',
         ]);
 
@@ -59,11 +68,16 @@ class RestaurantTableController extends Controller
     }
 
     /**
-     * Create multiple tables at once (bulk create).
+     * Create multiple tables at once.
      */
-    public function bulkStore(Request $request, Restaurant $restaurant)
-    {
-        $this->requirePermission($restaurant, 'tables.add');
+    public function bulkStore(
+        Request $request,
+        Restaurant $restaurant
+    ) {
+        $this->requirePermission(
+            $restaurant,
+            'tables.add'
+        );
 
         $validated = $request->validate([
             'count' => [
@@ -76,12 +90,22 @@ class RestaurantTableController extends Controller
 
         $count = $validated['count'];
 
-        // نلقاو آخر رقم كاين فهاد الريستورا باش نبداو من بعدو
+        /*
+        |--------------------------------------------------------------------------
+        | Get the current highest table number.
+        |--------------------------------------------------------------------------
+        */
+
         $lastNumber = $restaurant->tables()->max('number') ?? 0;
 
         $tables = [];
 
-        DB::transaction(function () use ($restaurant, $count, $lastNumber, &$tables) {
+        DB::transaction(function () use (
+            $restaurant,
+            $count,
+            $lastNumber,
+            &$tables
+        ) {
             for ($i = 1; $i <= $count; $i++) {
                 $number = $lastNumber + $i;
 
@@ -102,10 +126,19 @@ class RestaurantTableController extends Controller
     /**
      * Show one table.
      */
-    public function show(Restaurant $restaurant, RestaurantTable $table)
-    {
-        $this->requirePermission($restaurant, 'tables.view');
-        $this->authorizeTable($restaurant, $table);
+    public function show(
+        Restaurant $restaurant,
+        RestaurantTable $table
+    ) {
+        $this->requirePermission(
+            $restaurant,
+            'tables.view'
+        );
+
+        $this->authorizeTable(
+            $restaurant,
+            $table
+        );
 
         return response()->json($table);
     }
@@ -118,21 +151,33 @@ class RestaurantTableController extends Controller
         Restaurant $restaurant,
         RestaurantTable $table
     ) {
-        $this->requirePermission($restaurant, 'tables.update');
-        $this->authorizeTable($restaurant, $table);
+        $this->requirePermission(
+            $restaurant,
+            'tables.update'
+        );
+
+        $this->authorizeTable(
+            $restaurant,
+            $table
+        );
 
         $validated = $request->validate([
             'number' => [
                 'required',
                 'integer',
                 'min:1',
-                'unique:restaurant_tables,number,' . $table->id . ',id,restaurant_id,' . $restaurant->id,
+                'unique:restaurant_tables,number,'
+                    . $table->id
+                    . ',id,restaurant_id,'
+                    . $restaurant->id,
             ],
+
             'name' => [
                 'nullable',
                 'string',
                 'max:255',
             ],
+
             'status' => [
                 'required',
                 'in:available,occupied,reserved',
@@ -141,7 +186,8 @@ class RestaurantTableController extends Controller
 
         $table->update([
             'number' => $validated['number'],
-            'name' => $validated['name'] ?? 'Table ' . $validated['number'],
+            'name' => $validated['name']
+                ?? 'Table ' . $validated['number'],
             'status' => $validated['status'],
         ]);
 
@@ -152,12 +198,21 @@ class RestaurantTableController extends Controller
     }
 
     /**
-     * Delete table.
+     * Delete one table.
      */
-    public function destroy(Restaurant $restaurant, RestaurantTable $table)
-    {
-        $this->requirePermission($restaurant, 'tables.delete');
-        $this->authorizeTable($restaurant, $table);
+    public function destroy(
+        Restaurant $restaurant,
+        RestaurantTable $table
+    ) {
+        $this->requirePermission(
+            $restaurant,
+            'tables.delete'
+        );
+
+        $this->authorizeTable(
+            $restaurant,
+            $table
+        );
 
         $table->delete();
 
@@ -167,46 +222,50 @@ class RestaurantTableController extends Controller
     }
 
     /**
-     * Make sure restaurant belongs to authenticated user.
+     * Delete all tables of a restaurant.
      */
-    private function authorizeRestaurant(Restaurant $restaurant): void
-    {
-        $user = auth()->user();
+    public function destroyAll(
+        Restaurant $restaurant
+    ) {
+        /*
+        |--------------------------------------------------------------------------
+        | IMPORTANT:
+        | Use the same permission system as the other table actions.
+        |--------------------------------------------------------------------------
+        */
 
-        if ($restaurant->user_id === $user->id) {
-            return;
-        }
+        $this->requirePermission(
+            $restaurant,
+            'tables.delete'
+        );
 
-        if (($user->role === 'staff' || $user->role === 'owner') && isset($user->restaurant_id) && $user->restaurant_id == $restaurant->id) {
-            return;
-        }
+        $count = $restaurant
+            ->tables()
+            ->count();
 
-        abort(403, 'Unauthorized restaurant.');
-    }
+        $restaurant
+            ->tables()
+            ->delete();
 
-    /**
-     * Make sure table belongs to this restaurant.
-     */
-    private function authorizeTable(
-        Restaurant $restaurant,
-        RestaurantTable $table
-    ): void {
-        if ($table->restaurant_id !== $restaurant->id) {
-            abort(403, 'This table does not belong to this restaurant.');
-        }
-    }
-
-    public function destroyAll(Restaurant $restaurant)
-    {
-        $this->authorizeRestaurant($restaurant);
- 
-        $count = $restaurant->tables()->count();
- 
-        $restaurant->tables()->delete();
- 
         return response()->json([
             'message' => 'All tables deleted successfully.',
             'deleted_count' => $count,
         ]);
     }
+
+    /**
+     * Make sure the table belongs to this restaurant.
+     */
+    private function authorizeTable(
+        Restaurant $restaurant,
+        RestaurantTable $table
+    ): void {
+        if ((int) $table->restaurant_id !== (int) $restaurant->id) {
+            abort(
+                403,
+                'This table does not belong to this restaurant.'
+            );
+        }
+    }
 }
+ 
