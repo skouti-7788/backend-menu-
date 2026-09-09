@@ -13,136 +13,289 @@ use Illuminate\Support\Facades\Storage;
 
 class MenuCategoryController extends Controller
 {
-    public function index(Request $request, Restaurant $restaurant)
-    {
-        $this->authorizeRestaurant($restaurant);
+    /**
+     * List categories of a restaurant.
+     */
+    public function index(
+        Request $request,
+        Restaurant $restaurant
+    ) {
+        $this->requirePermission(
+            $restaurant,
+            'categories.view'
+        );
 
-        return MenuCategoryResource::collection($restaurant->categories()->latest()->get());
+        return MenuCategoryResource::collection(
+            $restaurant
+                ->categories()
+                ->latest()
+                ->get()
+        );
     }
 
-    public function store(MenuCategoryRequest $request, Restaurant $restaurant): MenuCategoryResource
-    {
-        $this->authorizeRestaurant($restaurant);
+    /**
+     * Create category.
+     */
+    public function store(
+        MenuCategoryRequest $request,
+        Restaurant $restaurant
+    ): MenuCategoryResource {
+        $this->requirePermission(
+            $restaurant,
+            'categories.add'
+        );
 
-        $data = $request->safe()->except(['image']);
-        $data['restaurant_id'] = $restaurant->id;
-        $data['description'] = $request->description;
+        $data = $request
+            ->safe()
+            ->except(['image']);
+
+        $data['restaurant_id'] =
+            $restaurant->id;
+
+        $data['description'] =
+            $request->description;
+
         if ($request->hasFile('image')) {
-            $data['image'] = $request->file('image')->store('categories', 'public');
+            $data['image'] = $request
+                ->file('image')
+                ->store(
+                    'categories',
+                    'public'
+                );
         }
-       
-        $category = MenuCategory::create($data);
-            // dd( $request);
-        return new MenuCategoryResource($category);
+
+        $category =
+            MenuCategory::create($data);
+
+        return new MenuCategoryResource(
+            $category->refresh()
+        );
     }
 
-    // public function show(MenuCategory $category): MenuCategoryResource
-    // {
-    //     $this->authorizeRestaurant($category->restaurant);
+    /**
+     * Show category.
+     */
+    public function show(
+        string $restaurant,
+        string $category
+    ): MenuCategoryResource {
+        $restaurantModel =
+            Restaurant::findOrFail(
+                $restaurant
+            );
 
-    //     return new MenuCategoryResource($category);
-    // }
+        $this->requirePermission(
+            $restaurantModel,
+            'categories.view'
+        );
 
-    // public function update(MenuCategoryRequest $request, MenuCategory $category): MenuCategoryResource
-    // {
-    //     $this->authorizeRestaurant($category->restaurant);
-
-    //     $data = $request->safe()->except(['image']);
-
-    //     if ($request->hasFile('image')) {
-    //         $this->deleteFile($category->image);
-    //         $data['image'] = $request->file('image')->store('categories', 'public');
-    //     }
-
-    //     $category->update($data);
-
-    //     return new MenuCategoryResource($category);
-    // }
-
-    // public function destroy(MenuCategory $category): JsonResponse
-    // {
-    //     $this->authorizeRestaurant($category->restaurant);
-
-    //     $this->deleteFile($category->image);
-    //     $category->delete();
-
-    //     return response()->json(['message' => 'Menu category removed successfully.']);
-    // }
-        public function show(string $restaurant, string $category): MenuCategoryResource
-    {
-        $restaurantModel = Restaurant::findOrFail($restaurant);
-
-        $this->authorizeRestaurant($restaurantModel);
-
-        $menuCategory = MenuCategory::where('id', $category)
-            ->where('restaurant_id', $restaurantModel->id)
+        $menuCategory =
+            MenuCategory::where(
+                'id',
+                $category
+            )
+            ->where(
+                'restaurant_id',
+                $restaurantModel->id
+            )
             ->firstOrFail();
 
-        return new MenuCategoryResource($menuCategory);
+        return new MenuCategoryResource(
+            $menuCategory
+        );
     }
 
-
+    /**
+     * Update category.
+     */
     public function update(
         MenuCategoryRequest $request,
         string $restaurant,
         string $category
     ): MenuCategoryResource {
-        $restaurantModel = Restaurant::findOrFail($restaurant);
+        $restaurantModel =
+            Restaurant::findOrFail(
+                $restaurant
+            );
 
-        $this->authorizeRestaurant($restaurantModel);
+        $this->requirePermission(
+            $restaurantModel,
+            'categories.update'
+        );
 
-        $menuCategory = MenuCategory::where('id', $category)
-            ->where('restaurant_id', $restaurantModel->id)
+        $menuCategory =
+            MenuCategory::where(
+                'id',
+                $category
+            )
+            ->where(
+                'restaurant_id',
+                $restaurantModel->id
+            )
             ->firstOrFail();
 
-        $data = $request->safe()->except(['image']);
+        $data = $request
+            ->safe()
+            ->except(['image']);
+
+        $data['description'] =
+            $request->description;
 
         if ($request->hasFile('image')) {
-            $this->deleteFile($menuCategory->image);
+            $this->deleteFile(
+                $menuCategory->image
+            );
 
-            $data['image'] = $request->file('image')
-                ->store('categories', 'public');
+            $data['image'] =
+                $request
+                    ->file('image')
+                    ->store(
+                        'categories',
+                        'public'
+                    );
         }
 
         $menuCategory->update($data);
 
-        return new MenuCategoryResource($menuCategory->refresh());
+        return new MenuCategoryResource(
+            $menuCategory->refresh()
+        );
     }
 
-
+    /**
+     * Delete category.
+     */
     public function destroy(
         string $restaurant,
         string $category
     ): JsonResponse {
-        $restaurantModel = Restaurant::findOrFail($restaurant);
+        $restaurantModel =
+            Restaurant::findOrFail(
+                $restaurant
+            );
 
-        $this->authorizeRestaurant($restaurantModel);
+        $this->requirePermission(
+            $restaurantModel,
+            'categories.delete'
+        );
 
-        $menuCategory = MenuCategory::where('id', $category)
-            ->where('restaurant_id', $restaurantModel->id)
+        $menuCategory =
+            MenuCategory::where(
+                'id',
+                $category
+            )
+            ->where(
+                'restaurant_id',
+                $restaurantModel->id
+            )
             ->firstOrFail();
 
-        $this->deleteFile($menuCategory->image);
+        $this->deleteFile(
+            $menuCategory->image
+        );
 
         $menuCategory->delete();
 
         return response()->json([
-            'message' => 'Menu category removed successfully.'
+            'message' =>
+                'Menu category removed successfully.'
         ]);
     }
-    protected function authorizeRestaurant(Restaurant $restaurant): void
-    {
+
+    /**
+     * Check restaurant access + permission.
+     *
+     * Rules:
+     *
+     * Admin
+     *   -> full access
+     *
+     * Owner / Restaurant Manager
+     *   -> access to restaurants they own
+     *
+     * Staff
+     *   -> access only to their restaurant
+     *   -> permission is required
+     */
+    protected function requirePermission(
+        Restaurant $restaurant,
+        string $permission
+    ): void {
         $user = auth()->user();
 
-        if ($user->role !== 'admin' && $restaurant->user_id !== $user->id) {
-            abort(403, 'You are not authorized to manage this restaurant.');
+        if (! $user) {
+            abort(
+                401,
+                'Unauthenticated.'
+            );
         }
+
+        /*
+         * ADMIN
+         */
+        if ($user->isAdmin()) {
+            return;
+        }
+
+        /*
+         * OWNER / MANAGER
+         *
+         * The restaurant belongs to this user.
+         */
+        if (
+            (int) $restaurant->user_id ===
+            (int) $user->id
+        ) {
+            return;
+        }
+
+        /*
+         * STAFF
+         *
+         * Staff must belong to this restaurant.
+         */
+        if (
+            $user->isStaff() &&
+            (int) $user->restaurant_id ===
+            (int) $restaurant->id
+        ) {
+            if (
+                $user->hasPermission(
+                    $permission
+                )
+            ) {
+                return;
+            }
+
+            abort(
+                403,
+                'You do not have permission to perform this action.'
+            );
+        }
+
+        /*
+         * User does not belong
+         * to this restaurant.
+         */
+        abort(
+            403,
+            'You are not authorized to access this restaurant.'
+        );
     }
 
-    protected function deleteFile(?string $path): void
-    {
-        if ($path && Storage::disk('public')->exists($path)) {
-            Storage::disk('public')->delete($path);
+    /**
+     * Delete stored image.
+     */
+    protected function deleteFile(
+        ?string $path
+    ): void {
+        if (
+            $path &&
+            Storage::disk('public')->exists($path)
+        ) {
+            Storage::disk('public')->delete(
+                $path
+            );
         }
     }
 }

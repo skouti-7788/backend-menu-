@@ -9812,3 +9812,53 @@ Did you mean one of these?
 #41 /home/redwan/Bureau/menu online/backend/artisan(16): Illuminate\\Foundation\\Application->handleCommand()
 #42 {main}
 "} 
+[2026-09-08 21:23:05] local.ERROR: The "--columns" option does not exist. {"exception":"[object] (Symfony\\Component\\Console\\Exception\\RuntimeException(code: 0): The \"--columns\" option does not exist. at /home/redwan/Bureau/menu online/backend/vendor/symfony/console/Input/ArgvInput.php:226)
+[stacktrace]
+#0 /home/redwan/Bureau/menu online/backend/vendor/symfony/console/Input/ArgvInput.php(153): Symfony\\Component\\Console\\Input\\ArgvInput->addLongOption()
+#1 /home/redwan/Bureau/menu online/backend/vendor/symfony/console/Input/ArgvInput.php(88): Symfony\\Component\\Console\\Input\\ArgvInput->parseLongOption()
+#2 /home/redwan/Bureau/menu online/backend/vendor/symfony/console/Input/ArgvInput.php(77): Symfony\\Component\\Console\\Input\\ArgvInput->parseToken()
+#3 /home/redwan/Bureau/menu online/backend/vendor/symfony/console/Input/Input.php(53): Symfony\\Component\\Console\\Input\\ArgvInput->parse()
+#4 /home/redwan/Bureau/menu online/backend/vendor/symfony/console/Command/Command.php(295): Symfony\\Component\\Console\\Input\\Input->bind()
+#5 /home/redwan/Bureau/menu online/backend/vendor/laravel/framework/src/Illuminate/Console/Command.php(249): Symfony\\Component\\Console\\Command\\Command->run()
+#6 /home/redwan/Bureau/menu online/backend/vendor/symfony/console/Application.php(1117): Illuminate\\Console\\Command->run()
+#7 /home/redwan/Bureau/menu online/backend/vendor/symfony/console/Application.php(356): Symfony\\Component\\Console\\Application->doRunCommand()
+#8 /home/redwan/Bureau/menu online/backend/vendor/symfony/console/Application.php(195): Symfony\\Component\\Console\\Application->doRun()
+#9 /home/redwan/Bureau/menu online/backend/vendor/laravel/framework/src/Illuminate/Foundation/Console/Kernel.php(198): Symfony\\Component\\Console\\Application->run()
+#10 /home/redwan/Bureau/menu online/backend/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1242): Illuminate\\Foundation\\Console\\Kernel->handle()
+#11 /home/redwan/Bureau/menu online/backend/artisan(16): Illuminate\\Foundation\\Application->handleCommand()
+#12 {main}
+"} 
+[2026-09-08 21:23:17] local.ERROR: The "--columns" option does not exist. {"exception":"[object] (Symfony\\Component\\Console\\Exception\\RuntimeException(code: 0): The \"--columns\" option does not exist. at /home/redwan/Bureau/menu online/backend/vendor/symfony/console/Input/ArgvInput.php:226)
+[stacktrace]
+#0 /home/redwan/Bureau/menu online/backend/vendor/symfony/console/Input/ArgvInput.php(153): Symfony\\Component\\Console\\Input\\ArgvInput->addLongOption()
+#1 /home/redwan/Bureau/menu online/backend/vendor/symfony/console/Input/ArgvInput.php(88): Symfony\\Component\\Console\\Input\\ArgvInput->parseLongOption()
+#2 /home/redwan/Bureau/menu online/backend/vendor/symfony/console/Input/ArgvInput.php(77): Symfony\\Component\\Console\\Input\\ArgvInput->parseToken()
+#3 /home/redwan/Bureau/menu online/backend/vendor/symfony/console/Input/Input.php(53): Symfony\\Component\\Console\\Input\\ArgvInput->parse()
+#4 /home/redwan/Bureau/menu online/backend/vendor/symfony/console/Command/Command.php(295): Symfony\\Component\\Console\\Input\\Input->bind()
+#5 /home/redwan/Bureau/menu online/backend/vendor/laravel/framework/src/Illuminate/Console/Command.php(249): Symfony\\Component\\Console\\Command\\Command->run()
+#6 /home/redwan/Bureau/menu online/backend/vendor/symfony/console/Application.php(1117): Illuminate\\Console\\Command->run()
+#7 /home/redwan/Bureau/menu online/backend/vendor/symfony/console/Application.php(356): Symfony\\Component\\Console\\Application->doRunCommand()
+#8 /home/redwan/Bureau/menu online/backend/vendor/symfony/console/Application.php(195): Symfony\\Component\\Console\\Application->doRun()
+#9 /home/redwan/Bureau/menu online/backend/vendor/laravel/framework/src/Illuminate/Foundation/Console/Kernel.php(198): Symfony\\Component\\Console\\Application->run()
+#10 /home/redwan/Bureau/menu online/backend/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1242): Illuminate\\Foundation\\Console\\Kernel->handle()
+#11 /home/redwan/Bureau/menu online/backend/artisan(16): Illuminate\\Foundation\\Application->handleCommand()
+#12 {main}
+"} 
+[2026-09-08 21:23:54] local.ERROR: Running Collision 8.x artisan test command in parallel requires at least ParaTest (brianium/paratest) 7.x. {"exception":"[object] (NunoMaduro\\Collision\\Adapters\\Laravel\\Exceptions\\RequirementsException(code: 0): Running Collision 8.x artisan test command in parallel requires at least ParaTest (brianium/paratest) 7.x. at /home/redwan/Bureau/menu online/backend/vendor/nunomaduro/collision/src/Adapters/Laravel/Commands/TestCommand.php:92)
+[stacktrace]
+#0 /home/redwan/Bureau/menu online/backend/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(36): NunoMaduro\\Collision\\Adapters\\Laravel\\Commands\\TestCommand->handle()
+#1 /home/redwan/Bureau/menu online/backend/vendor/laravel/framework/src/Illuminate/Container/Util.php(43): Illuminate\\Container\\BoundMethod::Illuminate\\Container\\{closure}()
+#2 /home/redwan/Bureau/menu online/backend/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(96): Illuminate\\Container\\Util::unwrapIfClosure()
+#3 /home/redwan/Bureau/menu online/backend/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(35): Illuminate\\Container\\BoundMethod::callBoundMethod()
+#4 /home/redwan/Bureau/menu online/backend/vendor/laravel/framework/src/Illuminate/Container/Container.php(800): Illuminate\\Container\\BoundMethod::call()
+#5 /home/redwan/Bureau/menu online/backend/vendor/laravel/framework/src/Illuminate/Console/Command.php(280): Illuminate\\Container\\Container->call()
+#6 /home/redwan/Bureau/menu online/backend/vendor/symfony/console/Command/Command.php(341): Illuminate\\Console\\Command->execute()
+#7 /home/redwan/Bureau/menu online/backend/vendor/laravel/framework/src/Illuminate/Console/Command.php(249): Symfony\\Component\\Console\\Command\\Command->run()
+#8 /home/redwan/Bureau/menu online/backend/vendor/symfony/console/Application.php(1117): Illuminate\\Console\\Command->run()
+#9 /home/redwan/Bureau/menu online/backend/vendor/symfony/console/Application.php(356): Symfony\\Component\\Console\\Application->doRunCommand()
+#10 /home/redwan/Bureau/menu online/backend/vendor/symfony/console/Application.php(195): Symfony\\Component\\Console\\Application->doRun()
+#11 /home/redwan/Bureau/menu online/backend/vendor/laravel/framework/src/Illuminate/Foundation/Console/Kernel.php(198): Symfony\\Component\\Console\\Application->run()
+#12 /home/redwan/Bureau/menu online/backend/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1242): Illuminate\\Foundation\\Console\\Kernel->handle()
+#13 /home/redwan/Bureau/menu online/backend/artisan(16): Illuminate\\Foundation\\Application->handleCommand()
+#14 {main}
+"} 
