@@ -422,7 +422,7 @@ class MealController extends Controller
      * DELETE All MEALS
      * =====================================================
      */
-    protected function deleteAllMeals(
+    public function deleteAllMeals(
         Request $request,
         Restaurant $restaurant
     ): JsonResponse {
