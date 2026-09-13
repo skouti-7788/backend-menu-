@@ -417,5 +417,29 @@ class MealController extends Controller
             );
         }
     }
-}
+     /**
+     * =====================================================
+     * DELETE All MEALS
+     * =====================================================
+     */
+    protected function deleteAllMeals(
+        Request $request,
+        Restaurant $restaurant
+    ): JsonResponse {
+        $this->requirePermission(
+            $restaurant,
+            'meals.delete'
+        );
+
+        /**
+         * Delete all meals
+         */
+        $restaurant->meals()->delete();
+
+        return response()->json([
+            'message' =>
+                'All meals deleted successfully.'
+        ]);
+    }
+}  
  
