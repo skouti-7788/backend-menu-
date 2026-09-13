@@ -59,29 +59,34 @@ class MealController extends Controller
             'meals.add'
         );
 
-        $data = $request
-            ->safe()
-            ->except(['image']);
+            $data = $request
+        ->safe()
+        ->except(['image']);
 
-        /**
-         * Always force restaurant_id
-         * from route restaurant.
-         */
-        $data['restaurant_id'] =
-            $restaurant->id;
+    /**
+     * Always force restaurant_id
+     * from route restaurant.
+     */
+    $data['restaurant_id'] = $restaurant->id;
 
-        /**
-         * Upload image
-         */
-        if ($request->hasFile('image')) {
-            $data['image'] =
-                $request
-                    ->file('image')
-                    ->store(
-                        'meals',
-                        'public'
-                    );
-        }
+    /**
+     * Upload image to Cloudinary
+     */
+    if ($request->hasFile('image')) {
+        $uploadedFile = $request->file('image');
+
+        $uploadResult = cloudinary()
+            ->uploadApi()
+            ->upload(
+                $uploadedFile->getRealPath(),
+                [
+                    'folder' => 'menu-online/meals',
+                    'resource_type' => 'image',
+                ]
+            );
+
+        $data['image'] = $uploadResult['secure_url'];
+    }
 
         $meal = Meal::create($data);
 
