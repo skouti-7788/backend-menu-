@@ -51,22 +51,31 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::apiResource('orders', OrderController::class)->shallow();
     });
 
-    Route::put('orders/{order}/status', [OrderController::class, 'updateStatus']);
-    Route::delete('orders/{order}/delete', [OrderController::class, 'destroy']);
-    Route::get('analytics/restaurants/{restaurant}', [AnalyticsController::class, 'restaurantOverview']);
-    Route::get('analytics/restaurants/{restaurant}/popular-meals', [AnalyticsController::class, 'popularMeals']);
-    Route::get('analytics/restaurants/{restaurant}/menu-views', [AnalyticsController::class, 'menuViews']);
+    // Route::put('orders/{order}/status', [OrderController::class, 'updateStatus']);
+    // Route::delete('orders/{order}/delete', [OrderController::class, 'destroy']);
+
+        Route::prefix('analytics/restaurants/{restaurant}')->group(function () {
+
+        Route::get('/', [AnalyticsController::class, 'restaurantOverview']);
+        Route::get('/popular-meals', [AnalyticsController::class, 'popularMeals']);
+        Route::get('/menu-views', [AnalyticsController::class, 'menuViews']);
+
+        });
+       
    
     Route::middleware([EnsureUserHasRole::class.':admin'])->group(function () {
         Route::get('admin/users', [AuthController::class, 'listUsers']);
     });
     // Staff management (owners only)
     Route::middleware([EnsureUserHasRole::class.':owner'])->group(function () {
-        Route::get('staff', [StaffController::class, 'index']);
-        Route::post('staff', [StaffController::class, 'store']);
-        Route::delete('staff/{staff}', [StaffController::class, 'destroy']);
+        
+        Route::apiResource('staff',  StaffController::class); 
         Route::get('staff/{staff}/permissions', [StaffController::class, 'permissions']);
         Route::put('staff/{staff}/permissions', [StaffController::class, 'updatePermissions']);
+
+        // Route::get('staff', [StaffController::class, 'index']);
+        // Route::post('staff', [StaffController::class, 'store']);
+        // Route::delete('staff/{staff}', [StaffController::class, 'destroy']);
     });
     Route::get(
         '/restaurant/appearance',
