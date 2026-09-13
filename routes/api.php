@@ -45,6 +45,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::delete('/restaurants/{restaurant}/tables/all', [RestaurantTableController::class, 'destroyAll']);
     Route::apiResource('restaurants.tables', RestaurantTableController::class);
     Route::prefix('restaurants/{restaurant}')->group(function () {
+        Route::delete('/restaurants/{restaurant}/meals/all', [MealController::class, 'deleteAllMeals']);
         Route::apiResource('categories', MenuCategoryController::class)->shallow();
         Route::apiResource('meals', MealController::class)->shallow();
         Route::apiResource('orders', OrderController::class)->shallow();
