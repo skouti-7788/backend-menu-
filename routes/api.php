@@ -51,8 +51,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::apiResource('orders', OrderController::class)->shallow();
     });
 
-    // Route::put('orders/{order}/status', [OrderController::class, 'updateStatus']);
-    // Route::delete('orders/{order}/delete', [OrderController::class, 'destroy']);
+    Route::put('orders/{order}/status', [OrderController::class, 'updateStatus']);
+    Route::delete('orders/{order}/delete', [OrderController::class, 'destroy']);
 
         Route::prefix('analytics/restaurants/{restaurant}')->group(function () {
 
