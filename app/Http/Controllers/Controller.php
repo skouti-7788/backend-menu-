@@ -121,11 +121,12 @@ abstract class Controller
         }
 
         /*
-        | Only the real owner can continue.
+        | Only the real owner (or restaurant_manager, legacy owner-equivalent role)
+        | can continue.
         */
         if (
             $restaurant->user_id === $user->id
-            && $user->isOwner()
+            && ($user->isOwner() || $user->isRestaurantManager())
         ) {
             return;
         }
@@ -159,26 +160,22 @@ abstract class Controller
         }
 
         /*
-        | Restaurant owner.
+        | Restaurant owner (or restaurant_manager, legacy owner-equivalent role).
         */
         if (
             $restaurant->user_id === $user->id
-            && $user->isOwner()
+            && ($user->isOwner() || $user->isRestaurantManager())
         ) {
             return;
         }
 
         /*
-        | Staff / restaurant manager assigned to this restaurant.
+        | Staff assigned to this restaurant.
         */
         if (
             $user->restaurant_id
             && (int) $user->restaurant_id === (int) $restaurant->id
-            && in_array(
-                $user->role,
-                ['staff', 'restaurant_manager'],
-                true
-            )
+            && $user->isStaff()
         ) {
             return;
         }
@@ -238,10 +235,28 @@ abstract class Controller
 
         /*
         |--------------------------------------------------------------------------
-        | STAFF / RESTAURANT MANAGER
+        | RESTAURANT MANAGER (legacy owner-equivalent role)
         |--------------------------------------------------------------------------
         |
-        | They must belong to this restaurant.
+        | Treated the same as owner for the restaurant they own,
+        | consistent with MealController/RestaurantController.
+        | Unlike staff, no explicit permission entry is required.
+        |
+        */
+
+        if (
+            $restaurant->user_id === $user->id
+            && $user->isRestaurantManager()
+        ) {
+            return;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | STAFF
+        |--------------------------------------------------------------------------
+        |
+        | Must belong to this restaurant and hold the explicit permission.
         |
         */
 
@@ -251,11 +266,7 @@ abstract class Controller
 
         if (
             $belongsToRestaurant
-            && in_array(
-                $user->role,
-                ['staff', 'restaurant_manager'],
-                true
-            )
+            && $user->isStaff()
         ) {
             /*
             | Explicit permission check.
@@ -282,4 +293,3 @@ abstract class Controller
         );
     }
 }
- 

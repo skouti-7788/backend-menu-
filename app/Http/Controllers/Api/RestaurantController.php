@@ -68,6 +68,17 @@ class RestaurantController extends Controller
     public function store(
         RestaurantRequest $request
     ): RestaurantResource {
+        $user = $request->user();
+
+        /*
+         * Only owners (and admins) may create additional
+         * restaurants. Staff accounts are scoped to a single
+         * restaurant and must never be able to spin up new ones.
+         */
+        if (! $user->isAdmin() && ! $user->isOwner() && ! $user->isRestaurantManager()) {
+            abort(403, 'You are not authorized to create a restaurant.');
+        }
+
         $data = $request
             ->safe()
             ->except([

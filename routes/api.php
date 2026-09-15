@@ -15,8 +15,10 @@ use App\Http\Controllers\Api\RestaurantAppearanceController;
 use App\Http\Controllers\Api\StaffController;
 
 Route::prefix('auth')->group(function () {
-    Route::post('register', [AuthController::class, 'register']);
-    Route::post('login', [AuthController::class, 'login']);
+    // throttle:6,1 => max 6 requests / minute per IP.
+    // Login is the main brute-force target, register prevents mass account spam.
+    Route::post('register', [AuthController::class, 'register'])->middleware('throttle:6,1');
+    Route::post('login', [AuthController::class, 'login'])->middleware('throttle:6,1');
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('logout', [AuthController::class, 'logout']);
@@ -89,8 +91,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
 });
 
 Route::prefix('menu')->group(function () {
-    Route::get('{slug}', [MenuController::class, 'show']);
-    Route::post('{slug}/view', [MenuController::class, 'recordView']);
-    Route::post('{slug}/orders', [MenuController::class, 'storeOrder']);
+    // Public, unauthenticated routes: keep generous limits for real customers
+    // but block scripted abuse (fake orders, analytics pollution).
+    Route::get('{slug}', [MenuController::class, 'show'])->middleware('throttle:60,1');
+    Route::post('{slug}/view', [MenuController::class, 'recordView'])->middleware('throttle:30,1');
+    Route::post('{slug}/orders', [MenuController::class, 'storeOrder'])->middleware('throttle:10,1');
 
 });
