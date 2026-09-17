@@ -1,0 +1,122 @@
+<?php
+ 
+namespace Tests\Feature;
+ 
+use App\Models\Meal;
+use App\Models\MenuCategory;
+use App\Models\Restaurant;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+ 
+class MealTenantIsolationTest extends TestCase
+{
+    use RefreshDatabase;
+ 
+    private function makeRestaurantWithOwner(string $emailSuffix): array
+    {
+        $owner = User::create([
+            'name' => "Owner {$emailSuffix}",
+            'email' => "owner{$emailSuffix}@example.com",
+            'password' => 'secret123',
+            'role' => 'owner',
+        ]);
+ 
+        $restaurant = Restaurant::create([
+            'user_id' => $owner->id,
+            'name' => "Restaurant {$emailSuffix}",
+            'slug' => "restaurant-{$emailSuffix}",
+        ]);
+ 
+        $owner->restaurant_id = $restaurant->id;
+        $owner->save();
+ 
+        return [$owner, $restaurant];
+    }
+ 
+    public function test_staff_of_one_restaurant_cannot_list_meals_of_another_restaurant(): void
+    {
+        [, $restaurantA] = $this->makeRestaurantWithOwner('a');
+        [$ownerB, $restaurantB] = $this->makeRestaurantWithOwner('b');
+ 
+        $staffB = User::create([
+            'name' => 'Staff B',
+            'email' => 'staffb@example.com',
+            'password' => 'secret123',
+            'role' => 'staff',
+            'restaurant_id' => $restaurantB->id,
+        ]);
+ 
+        // Even a legitimate staff member of restaurant B must not be able
+        // to read restaurant A's meals by guessing/changing the URL id.
+        $response = $this->actingAs($staffB, 'sanctum')
+            ->getJson("/api/restaurants/{$restaurantA->id}/meals");
+ 
+        $response->assertStatus(403);
+    }
+ 
+    public function test_owner_of_one_restaurant_cannot_update_a_meal_belonging_to_another_restaurant(): void
+    {
+        [$ownerA, $restaurantA] = $this->makeRestaurantWithOwner('a');
+        [$ownerB, $restaurantB] = $this->makeRestaurantWithOwner('b');
+ 
+        $categoryB = MenuCategory::create([
+            'restaurant_id' => $restaurantB->id,
+            'name' => 'Mains',
+            'status' => 'active',
+        ]);
+ 
+        $mealB = Meal::create([
+            'restaurant_id' => $restaurantB->id,
+            'category_id' => $categoryB->id,
+            'name' => 'Steak',
+            'price' => 25.00,
+            'status' => 'active',
+            'featured' => false,
+        ]);
+ 
+        // Owner A tries to hit restaurant B's meal through restaurant A's
+        // nested route by supplying restaurant B's meal id.
+        $response = $this->actingAs($ownerA, 'sanctum')
+            ->putJson("/api/restaurants/{$restaurantA->id}/meals/{$mealB->id}", [
+                'category_id' => $categoryB->id,
+                'name' => 'Hacked Steak',
+                'price' => 0.01,
+                'status' => 'active',
+            ]);
+ 
+        $response->assertStatus(404);
+ 
+        $this->assertDatabaseHas('meals', [
+            'id' => $mealB->id,
+            'name' => 'Steak',
+            'price' => 25.00,
+        ]);
+    }
+ 
+    public function test_owner_can_manage_meals_within_their_own_restaurant(): void
+    {
+        [$owner, $restaurant] = $this->makeRestaurantWithOwner('c');
+ 
+        $category = MenuCategory::create([
+            'restaurant_id' => $restaurant->id,
+            'name' => 'Desserts',
+            'status' => 'active',
+        ]);
+ 
+        $response = $this->actingAs($owner, 'sanctum')
+            ->postJson("/api/restaurants/{$restaurant->id}/meals", [
+                'category_id' => $category->id,
+                'name' => 'Tiramisu',
+                'price' => 8.50,
+                'status' => 'active',
+            ]);
+ 
+        $response->assertStatus(201);
+        $this->assertDatabaseHas('meals', [
+            'restaurant_id' => $restaurant->id,
+            'name' => 'Tiramisu',
+        ]);
+    }
+}
+ 
