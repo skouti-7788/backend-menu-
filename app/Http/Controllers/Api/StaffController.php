@@ -22,7 +22,8 @@ class StaffController extends Controller
     {
         $restaurant = $this->resolveRestaurantForUser($request);
 
-        $this->authorizeOwner($restaurant);
+        // $this->authorizeOwner($restaurant);
+         $this->requirePermission($restaurant, 'staff.view');
 
         $staff = User::query()
             ->where('restaurant_id', $restaurant->id)
