@@ -53,7 +53,7 @@ class StaffController extends Controller
     {
         $restaurant = $this->resolveRestaurantForUser($request);
 
-        $this->authorizeOwner($restaurant);
+        // $this->authorizeOwner($restaurant);
 
         $allowedPermissions = $this->allowedPermissionsList();
 
@@ -163,7 +163,7 @@ class StaffController extends Controller
     ): JsonResponse {
         $restaurant = $this->resolveRestaurantForUser($request);
 
-        $this->authorizeOwner($restaurant);
+        // $this->authorizeOwner($restaurant);
 
         $this->ensureStaffBelongsToRestaurant(
             $staff,
@@ -200,7 +200,7 @@ class StaffController extends Controller
     ): JsonResponse {
         $restaurant = $this->resolveRestaurantForUser($request);
 
-        $this->authorizeOwner($restaurant);
+        // $this->authorizeOwner($restaurant);
 
         $this->ensureStaffBelongsToRestaurant(
             $staff,
@@ -227,7 +227,7 @@ class StaffController extends Controller
     ): JsonResponse {
         $restaurant = $this->resolveRestaurantForUser($request);
 
-        $this->authorizeOwner($restaurant);
+        // $this->authorizeOwner($restaurant);
 
         $this->ensureStaffBelongsToRestaurant(
             $staff,
