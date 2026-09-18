@@ -1,5 +1,5 @@
 <?php
-
+ 
 use App\Http\Controllers\Api\AnalyticsController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\MealController;
@@ -13,22 +13,22 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\Api\RestaurantTableController;
 use App\Http\Controllers\Api\RestaurantAppearanceController;
 use App\Http\Controllers\Api\StaffController;
-
+ 
 Route::prefix('auth')->group(function () {
     // throttle:6,1 => max 6 requests / minute per IP.
     // Login is the main brute-force target, register prevents mass account spam.
     Route::post('register', [AuthController::class, 'register'])->middleware('throttle:6,1');
     Route::post('login', [AuthController::class, 'login'])->middleware('throttle:6,1');
-
+ 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('logout', [AuthController::class, 'logout']);
     });
 });
-
+ 
 // Current authenticated user
 Route::middleware('auth:sanctum')->get('user', function (Request $request) {
     $user = $request->user();
-
+ 
     $payload = [
         'id' => $user->id,
         'name' => $user->name,
@@ -37,10 +37,10 @@ Route::middleware('auth:sanctum')->get('user', function (Request $request) {
         'restaurant_id' => $user->restaurant_id,
         'permissions' => $user->role === 'owner' ? [] : $user->permissions()->pluck('permission')->toArray(),
     ];
-
+ 
     return response()->json(['user' => $payload]);
 });
-
+ 
 Route::middleware(['auth:sanctum'])->group(function () {
     Route::apiResource('restaurants', RestaurantController::class);
     // Route::apiResource('tables', RestaurantTableController::class);
@@ -52,49 +52,42 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::apiResource('meals', MealController::class)->shallow();
         Route::apiResource('orders', OrderController::class)->shallow();
     });
-
+ 
     Route::put('orders/{order}/status', [OrderController::class, 'updateStatus']);
     Route::delete('orders/{order}/delete', [OrderController::class, 'destroy']);
-
+ 
         Route::prefix('analytics/restaurants/{restaurant}')->group(function () {
-
+ 
         Route::get('/', [AnalyticsController::class, 'restaurantOverview']);
         Route::get('/popular-meals', [AnalyticsController::class, 'popularMeals']);
         Route::get('/menu-views', [AnalyticsController::class, 'menuViews']);
-
+ 
         });
        
    
     Route::middleware([EnsureUserHasRole::class.':admin'])->group(function () {
         Route::get('admin/users', [AuthController::class, 'listUsers']);
     });
-    // Staff management (owners only)
-    Route::middleware([EnsureUserHasRole::class.':owner'])->group(function () {
-        
-        Route::apiResource('staff',  StaffController::class); 
-        Route::get('staff/{staff}/permissions', [StaffController::class, 'permissions']);
-        Route::put('staff/{staff}/permissions', [StaffController::class, 'updatePermissions']);
-
-        // Route::get('staff', [StaffController::class, 'index']);
-        // Route::post('staff', [StaffController::class, 'store']);
-        // Route::delete('staff/{staff}', [StaffController::class, 'destroy']);
-    });
+    // Staff management (owner OR staff with the matching staff.* permission)
+    Route::apiResource('staff',  StaffController::class);
+    Route::get('staff/{staff}/permissions', [StaffController::class, 'permissions']);
+    Route::put('staff/{staff}/permissions', [StaffController::class, 'updatePermissions']);
     Route::get(
         '/restaurant/appearance',
         [RestaurantAppearanceController::class, 'show']
     );
-
+ 
     Route::post(
         '/restaurant/appearance',
         [RestaurantAppearanceController::class, 'update']
     );
 });
-
+ 
 Route::prefix('menu')->group(function () {
     // Public, unauthenticated routes: keep generous limits for real customers
     // but block scripted abuse (fake orders, analytics pollution).
     Route::get('{slug}', [MenuController::class, 'show'])->middleware('throttle:60,1');
     Route::post('{slug}/view', [MenuController::class, 'recordView'])->middleware('throttle:30,1');
     Route::post('{slug}/orders', [MenuController::class, 'storeOrder'])->middleware('throttle:10,1');
-
+ 
 });
