@@ -182,19 +182,16 @@ class RestaurantAppearanceController extends Controller
             |--------------------------------------------------------------------------
             */
 
-            if ($request->hasFile($field)) {
+             if ($request->hasFile($field)) {
+                $oldImage = $appearance->{$field};
+                $newImageUrl = null;
 
                 try {
-
-                    $oldImage = $appearance->{$field};
-
                     /*
                     |--------------------------------------------------------------------------
-                    | Upload new image FIRST.
-                    | We don't delete the old image before a successful upload.
+                    | Upload new image first
                     |--------------------------------------------------------------------------
                     */
-
                     $uploadedFile = Cloudinary::upload(
                         $request
                             ->file($field)
@@ -216,30 +213,59 @@ class RestaurantAppearanceController extends Controller
                         );
                     }
 
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Save new URL
-                    |--------------------------------------------------------------------------
-                    */
-
                     $validated[$field] = $newImageUrl;
 
                     /*
                     |--------------------------------------------------------------------------
-                    | Delete old image AFTER successful upload.
+                    | Do NOT delete old image yet.
+                    | DB must be updated successfully first.
                     |--------------------------------------------------------------------------
                     */
 
-                    if ($oldImage) {
-                        $this->deleteCloudinaryImageByUrl(
-                            $oldImage
-                        );
+                    $appearance->fill($validated);
+                    $appearance->save();
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | DB update succeeded → now delete old image
+                    |--------------------------------------------------------------------------
+                    */
+
+                    if (
+                        $oldImage &&
+                        $oldImage !== $newImageUrl
+                    ) {
+                        $this->deleteCloudinaryImageByUrl($oldImage);
                     }
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Prevent this field from being saved again below.
+                    |--------------------------------------------------------------------------
+                    */
+
+                    unset($validated[$field]);
 
                 } catch (\Throwable $e) {
 
+                    /*
+                    |--------------------------------------------------------------------------
+                    | If DB update failed after Cloudinary upload,
+                    | clean up the newly uploaded image.
+                    |--------------------------------------------------------------------------
+                    */
+
+                    if (
+                        $newImageUrl &&
+                        $newImageUrl !== $oldImage
+                    ) {
+                        $this->deleteCloudinaryImageByUrl(
+                            $newImageUrl
+                        );
+                    }
+
                     Log::error(
-                        'Cloudinary appearance image upload failed.',
+                        'Cloudinary appearance image upload/update failed.',
                         [
                             'field' => $field,
                             'restaurant_id' => $restaurant->id,
@@ -253,18 +279,31 @@ class RestaurantAppearanceController extends Controller
                         ],
                     ]);
                 }
+
             }
         }
 
         /*
         |--------------------------------------------------------------------------
-        | Save appearance
+        | Save non-file appearance settings
         |--------------------------------------------------------------------------
         */
 
-        $appearance->fill($validated);
-        $appearance->save();
+        $appearanceData = collect($validated)
+            ->except([
+                'logo',
+                'header_image',
+                'background_image',
+                'remove_logo',
+                'remove_header_image',
+                'remove_background_image',
+            ])
+            ->toArray();
 
+        if ($appearanceData !== []) {
+            $appearance->fill($appearanceData);
+            $appearance->save();
+        }
         return response()->json([
             'message' => 'Appearance updated successfully.',
             'appearance' => $appearance->fresh(),

@@ -59,13 +59,19 @@ class MealTenantIsolationTest extends TestCase
     {
         [$ownerA, $restaurantA] = $this->makeRestaurantWithOwner('a');
         [$ownerB, $restaurantB] = $this->makeRestaurantWithOwner('b');
- 
-        $categoryB = MenuCategory::create([
-            'restaurant_id' => $restaurantB->id,
-            'name' => 'Mains',
+
+        $categoryA = MenuCategory::create([
+            'restaurant_id' => $restaurantA->id,
+            'name' => 'Mains A',
             'status' => 'active',
         ]);
- 
+
+        $categoryB = MenuCategory::create([
+            'restaurant_id' => $restaurantB->id,
+            'name' => 'Mains B',
+            'status' => 'active',
+        ]);
+
         $mealB = Meal::create([
             'restaurant_id' => $restaurantB->id,
             'category_id' => $categoryB->id,
@@ -74,19 +80,17 @@ class MealTenantIsolationTest extends TestCase
             'status' => 'active',
             'featured' => false,
         ]);
- 
-        // Owner A tries to hit restaurant B's meal through restaurant A's
-        // nested route by supplying restaurant B's meal id.
+
         $response = $this->actingAs($ownerA, 'sanctum')
             ->putJson("/api/restaurants/{$restaurantA->id}/meals/{$mealB->id}", [
-                'category_id' => $categoryB->id,
+                'category_id' => $categoryA->id,
                 'name' => 'Hacked Steak',
                 'price' => 0.01,
                 'status' => 'active',
             ]);
- 
+
         $response->assertStatus(404);
- 
+
         $this->assertDatabaseHas('meals', [
             'id' => $mealB->id,
             'name' => 'Steak',
@@ -118,5 +122,31 @@ class MealTenantIsolationTest extends TestCase
             'name' => 'Tiramisu',
         ]);
     }
+    public function test_owner_cannot_create_a_meal_using_a_category_from_another_restaurant(): void
+{
+    [$ownerA, $restaurantA] = $this->makeRestaurantWithOwner('category-a');
+    [$ownerB, $restaurantB] = $this->makeRestaurantWithOwner('category-b');
+
+    $categoryB = MenuCategory::create([
+        'restaurant_id' => $restaurantB->id,
+        'name' => 'Category B',
+        'status' => 'active',
+    ]);
+
+    $response = $this->actingAs($ownerA, 'sanctum')
+        ->postJson("/api/restaurants/{$restaurantA->id}/meals", [
+            'category_id' => $categoryB->id,
+            'name' => 'Invalid Cross Tenant Meal',
+            'price' => 10.00,
+            'status' => 'active',
+        ]);
+
+    $response->assertStatus(422);
+
+    $this->assertDatabaseMissing('meals', [
+        'restaurant_id' => $restaurantA->id,
+        'name' => 'Invalid Cross Tenant Meal',
+    ]);
+}
 }
  

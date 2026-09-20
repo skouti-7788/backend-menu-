@@ -408,7 +408,9 @@ class StaffController extends Controller
             'staff.delete',
  
             'qrcode.view',
- 
+            
+            'restaurant.update',
+
             'profile.view',
             'profile.update',
         ];

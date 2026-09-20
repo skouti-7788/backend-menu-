@@ -70,10 +70,12 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('admin/users', [AuthController::class, 'listUsers']);
     });
     // Staff management (owner OR staff with the matching staff.* permission)
-    Route::apiResource('staff',  StaffController::class);
+    Route::apiResource('staff', StaffController::class)
+        ->only(['index', 'store', 'destroy']);
+
     Route::get('staff/{staff}/permissions', [StaffController::class, 'permissions']);
-    Route::put('staff/{staff}/permissions', [StaffController::class, 'updatePermissions']);
-    Route::get(
+    Route::put('staff/{staff}/permissions', [StaffController::class, 'updatePermissions']); 
+        Route::get(
         '/restaurant/appearance',
         [RestaurantAppearanceController::class, 'show']
     );

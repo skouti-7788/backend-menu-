@@ -143,8 +143,9 @@ class RestaurantController extends Controller
         RestaurantRequest $request,
         Restaurant $restaurant
     ): RestaurantResource {
-        $this->requireRestaurantAccess(
-            $restaurant
+        $this->requirePermission(
+            $restaurant,
+            'restaurant.update'
         );
 
         $data = $request
@@ -199,7 +200,7 @@ class RestaurantController extends Controller
     public function destroy(
         Restaurant $restaurant
     ): JsonResponse {
-        $this->requireRestaurantAccess(
+        $this->authorizeOwner(
             $restaurant
         );
 

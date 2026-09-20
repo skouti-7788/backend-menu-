@@ -16,18 +16,39 @@ use App\Services\TranslationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-
+use App\Enums\MealStatus;
 class MenuController extends Controller
 {
     public function show(Request $request, string $slug, TranslationService $translator): JsonResponse
     {
-        $language = $request->query('lang', 'en');
+        $validated = $request->validate([
+            'lang' => ['nullable', 'string', 'in:en,fr,ar'],
+        ]);
 
+        $language = $validated['lang'] ?? 'en';
         $restaurant = Restaurant::where('slug', $slug)
-            ->with(['categories', 'meals.translations'])
+            ->with([
+                'categories' => function ($query) {
+                    $query->where('status', MealStatus::ACTIVE);
+                },
+                'meals' => function ($query) {
+                    $query->where('status', MealStatus::ACTIVE)
+                        ->with('translations');
+                },
+            ])
             ->firstOrFail();
 
-        $meals = $restaurant->meals->filter(fn ($meal) => $meal->status->value === 'active');
+        $meals = $restaurant->meals;
+        // $restaurant = Restaurant::where('slug', $slug)
+        //     ->with([
+        //         'categories' => function ($query) {
+        //             $query->where('status', MealStatus::ACTIVE);
+        //         },
+        //         'meals.translations',
+        //     ])
+        //     ->firstOrFail();
+
+        // $meals = $restaurant->meals->filter(fn ($meal) => $meal->status->value === 'active');
 
         $meals = $meals->map(function ($meal) use ($language, $translator) {
             if ($language !== 'en') {
@@ -46,16 +67,8 @@ class MenuController extends Controller
                 'featured' => $meal->featured,
             ];
         });
-
-        $appearance = $restaurant->appearance()->firstOrCreate([
-            'restaurant_id' => $restaurant->id,
-        ], [
-            'primary_color' => '#D97706',
-            'secondary_color' => '#92400E',
-            'text_color' => '#1F2937',
-            'background_color' => '#FFFFFF',
-            'font_family' => 'Inter',
-        ]);
+        
+        $appearance = $restaurant->appearance;
 
         return response()->json([
             'restaurant' => [
@@ -73,17 +86,17 @@ class MenuController extends Controller
                 'menu_url' => $restaurant->menu_url,
             ],
             'appearance' => [
-                'id' => $appearance->id,
-                'restaurant_id' => $appearance->restaurant_id,
-                'logo' => $appearance->logo,
-                'header_image' => $appearance->header_image,
-                'background_image' => $appearance->background_image,
-                'primary_color' => $appearance->primary_color,
-                'secondary_color' => $appearance->secondary_color,
-                'text_color' => $appearance->text_color,
-                'background_color' => $appearance->background_color,
-                'font_family' => $appearance->font_family,
-            ],
+            'id' => $appearance?->id,
+            'restaurant_id' => $restaurant->id,
+            'logo' => $appearance?->logo,
+            'header_image' => $appearance?->header_image,
+            'background_image' => $appearance?->background_image,
+            'primary_color' => $appearance?->primary_color ?? '#D97706',
+            'secondary_color' => $appearance?->secondary_color ?? '#92400E',
+            'text_color' => $appearance?->text_color ?? '#1F2937',
+            'background_color' => $appearance?->background_color ?? '#FFFFFF',
+            'font_family' => $appearance?->font_family ?? 'Inter',
+        ],
             'categories' => $restaurant->categories->map(fn ($category) => [
                 'id' => $category->id,
                 'name' => $category->name,
@@ -102,10 +115,20 @@ class MenuController extends Controller
     public function storeOrder(OrderRequest $request, string $slug): JsonResponse
     {
         $restaurant = Restaurant::where('slug', $slug)->firstOrFail();
-        $items = collect($request->input('items', []));
-        $table = $restaurant->tables()->where('qr_token', $request->input('table_token'))->firstOrFail();
 
-        $order = DB::transaction(function () use ($restaurant, $items, $table, $request) {
+        $items = collect($request->input('items', []));
+
+        $table = $restaurant
+            ->tables()
+            ->where('qr_token', $request->input('table_token'))
+            ->firstOrFail();
+
+        $order = DB::transaction(function () use (
+            $restaurant,
+            $items,
+            $table,
+            $request
+        ) {
             $order = Order::create([
                 'restaurant_id' => $restaurant->id,
                 'customer_name' => $request->customer_name,
@@ -117,35 +140,72 @@ class MenuController extends Controller
                 'table_token' => $table->qr_token,
             ]);
 
-            $subtotal = 0;
+            $subtotalCents = 0;
 
             foreach ($items as $item) {
-                $meal = $restaurant->meals()->whereKey($item['meal_id'])->where('status', 'active')->firstOrFail();
+                $meal = $restaurant
+                    ->meals()
+                    ->whereKey($item['meal_id'])
+                    ->where('status', 'active')
+                    ->firstOrFail();
+
                 $quantity = (int) ($item['quantity'] ?? 0);
-                $lineTotal = (float) $meal->price * $quantity;
-                $subtotal += $lineTotal;
+
+                $unitPriceCents = (int) round(
+                    ((float) $meal->price) * 100
+                );
+
+                $lineTotalCents = $unitPriceCents * $quantity;
+
+                $subtotalCents += $lineTotalCents;
 
                 OrderItem::create([
                     'order_id' => $order->id,
                     'meal_id' => $meal->id,
                     'quantity' => $quantity,
-                    'unit_price' => $meal->price,
-                    'total_price' => $lineTotal,
+                    'unit_price' => number_format(
+                        $unitPriceCents / 100,
+                        2,
+                        '.',
+                        ''
+                    ),
+                    'total_price' => number_format(
+                        $lineTotalCents / 100,
+                        2,
+                        '.',
+                        ''
+                    ),
                     'notes' => (string) ($item['notes'] ?? ''),
                 ]);
             }
 
-            $tax = round($subtotal * 0.09, 2);
-            $total = round($subtotal + $tax, 2);
+            $taxCents = (int) round($subtotalCents * 0.09);
 
-            $order->update(['total' => $total]);
-            $table->refresh();
-            $table->update(['status' => 'reserved']);
+            $totalCents = $subtotalCents + $taxCents;
 
-            $order->refresh();
+            $order->update([
+                'total' => number_format(
+                    $totalCents / 100,
+                    2,
+                    '.',
+                    ''
+                ),
+            ]);
+
+            $table->update([
+                'status' => 'reserved',
+            ]);
 
             return $order->load('items');
         });
+
+        $subtotalCents = $order->items->sum(
+            fn ($item) => (int) round(
+                ((float) $item->total_price) * 100
+            )
+        );
+
+        $taxCents = (int) round($subtotalCents * 0.09);
 
         return response()->json([
             'message' => 'Order created successfully',
@@ -156,10 +216,25 @@ class MenuController extends Controller
                 'phone' => $order->phone,
                 'address' => $order->address,
                 'status' => $order->status->value,
-                'subtotal' => round($order->items->sum('total_price'), 2),
-                'tax' => round($order->items->sum('total_price') * 0.09, 2),
+
+                'subtotal' => number_format(
+                    $subtotalCents / 100,
+                    2,
+                    '.',
+                    ''
+                ),
+
+                'tax' => number_format(
+                    $taxCents / 100,
+                    2,
+                    '.',
+                    ''
+                ),
+
                 'total' => $order->total,
+
                 'table_id' => $order->table_id,
+
                 'items' => $order->items->map(fn ($item) => [
                     'meal_id' => $item->meal_id,
                     'quantity' => $item->quantity,
@@ -170,24 +245,47 @@ class MenuController extends Controller
             ],
         ], 201);
     }
-
+        
     public function recordView(Request $request, string $slug): JsonResponse
     {
-        $restaurant = Restaurant::where('slug', $slug)->firstOrFail();
-        $mealId = $request->input('meal_id');
+        $validated = $request->validate([
+            'meal_id' => [
+                'nullable',
+                'integer',
+            ],
+            'lang' => [
+                'nullable',
+                'string',
+                'in:en,fr,ar',
+            ],
+        ]);
 
-        if ($mealId !== null && ! $restaurant->meals()->whereKey($mealId)->where('status', 'active')->exists()) {
-            abort(422, 'The selected meal is not available for this restaurant.');
+        $restaurant = Restaurant::where('slug', $slug)->firstOrFail();
+
+        $mealId = $validated['meal_id'] ?? null;
+
+        if (
+            $mealId !== null
+            && ! $restaurant->meals()
+                ->whereKey($mealId)
+                ->where('status', 'active')
+                ->exists()
+        ) {
+            return response()->json([
+                'message' => 'The selected meal is not available for this restaurant.',
+            ], 422);
         }
 
         MenuView::create([
             'restaurant_id' => $restaurant->id,
             'meal_id' => $mealId,
-            'language' => $request->query('lang', 'en'),
+            'language' => $validated['lang'] ?? 'en',
             'ip_address' => $request->ip(),
             'user_agent' => $request->userAgent(),
         ]);
 
-        return response()->json(['message' => 'View recorded.']);
+        return response()->json([
+            'message' => 'View recorded.',
+        ]);
     }
 }

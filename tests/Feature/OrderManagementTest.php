@@ -109,20 +109,43 @@ class OrderManagementTest extends TestCase
 
     public function test_order_creation_rejects_a_meal_from_another_restaurant(): void
     {
-        [$ownerA, $restaurantA] = $this->makeRestaurantWithOwner('a');
-        [, $restaurantB] = $this->makeRestaurantWithOwner('b');
-        $mealB = $this->makeMeal($restaurantB, 15.00);
+        [$ownerA, $restaurantA] =
+            $this->makeRestaurantWithOwner('a');
 
-        $response = $this->actingAs($ownerA, 'sanctum')
-            ->postJson("/api/restaurants/{$restaurantA->id}/orders", [
-                'customer_name' => 'Jane Doe',
-                'address' => '456 Side Street',
-                'items' => [
-                    ['meal_id' => $mealB->id, 'quantity' => 1],
-                ],
-            ]);
+        [, $restaurantB] =
+            $this->makeRestaurantWithOwner('b');
 
-        $response->assertStatus(404);
+        $mealB =
+            $this->makeMeal(
+                $restaurantB,
+                15.00
+            );
+
+        $response =
+            $this->actingAs(
+                $ownerA,
+                'sanctum'
+            )->postJson(
+                "/api/restaurants/{$restaurantA->id}/orders",
+                [
+                    'customer_name' => 'Jane Doe',
+                    'address' => '456 Side Street',
+
+                    'items' => [
+                        [
+                            'meal_id' => $mealB->id,
+                            'quantity' => 1,
+                        ],
+                    ],
+                ]
+            );
+
+        $response->assertStatus(422);
+
+        $this->assertDatabaseMissing('orders', [
+            'restaurant_id' => $restaurantA->id,
+            'customer_name' => 'Jane Doe',
+        ]);
     }
 
     public function test_staff_without_orders_view_permission_cannot_list_orders(): void
@@ -340,5 +363,150 @@ class OrderManagementTest extends TestCase
             ]);
 
         $response->assertStatus(422);
+    }
+    public function test_order_creation_rejects_a_table_from_another_restaurant(): void
+    {
+        [$ownerA, $restaurantA] =
+            $this->makeRestaurantWithOwner('table-a');
+
+        [, $restaurantB] =
+            $this->makeRestaurantWithOwner('table-b');
+
+        $mealA =
+            $this->makeMeal(
+                $restaurantA,
+                10.00
+            );
+
+        $tableB = RestaurantTable::create([
+            'restaurant_id' => $restaurantB->id,
+            'number' => 1,
+            'name' => 'Table B',
+            'status' => 'available',
+        ]);
+
+        $response =
+            $this->actingAs(
+                $ownerA,
+                'sanctum'
+            )->postJson(
+                "/api/restaurants/{$restaurantA->id}/orders",
+                [
+                    'customer_name' => 'Cross Tenant Customer',
+                    'address' => '123 Main Street',
+
+                    'table_id' => $tableB->id,
+
+                    'items' => [
+                        [
+                            'meal_id' => $mealA->id,
+                            'quantity' => 1,
+                        ],
+                    ],
+                ]
+            );
+
+        $response->assertStatus(422);
+
+        $this->assertDatabaseMissing('orders', [
+            'restaurant_id' => $restaurantA->id,
+            'customer_name' => 'Cross Tenant Customer',
+        ]);
+    }
+    public function test_dashboard_order_creation_reserves_the_selected_table(): void
+    {
+        [$owner, $restaurant] = $this->makeRestaurantWithOwner('dashboard-table');
+
+        $meal = $this->makeMeal($restaurant, 18.50);
+
+        $table = RestaurantTable::create([
+            'restaurant_id' => $restaurant->id,
+            'number' => 1,
+            'name' => 'Table 1',
+            'status' => 'available',
+        ]);
+
+        $response = $this->actingAs($owner, 'sanctum')
+            ->postJson("/api/restaurants/{$restaurant->id}/orders", [
+                'customer_name' => 'Dashboard Customer',
+                'phone' => '0600000000',
+                'address' => '123 Main Street',
+                'table_id' => $table->id,
+                'items' => [
+                    [
+                        'meal_id' => $meal->id,
+                        'quantity' => 2,
+                    ],
+                ],
+            ]);
+
+        $response->assertStatus(201);
+
+        $this->assertDatabaseHas('orders', [
+            'restaurant_id' => $restaurant->id,
+            'table_id' => $table->id,
+            'status' => 'pending',
+            'total' => 40.33,
+        ]);
+
+        $this->assertDatabaseHas('restaurant_tables', [
+            'id' => $table->id,
+            'status' => 'reserved',
+        ]);
+
+        $this->assertDatabaseHas('order_items', [
+            'order_id' => Order::where('restaurant_id', $restaurant->id)
+                ->where('customer_name', 'Dashboard Customer')
+                ->value('id'),
+            'meal_id' => $meal->id,
+            'quantity' => 2,
+            'unit_price' => 18.50,
+            'total_price' => 37.00,
+        ]);
+    }
+    public function test_order_ignores_client_supplied_prices_and_calculates_from_database(): void
+    {
+        [$owner, $restaurant] = $this->makeRestaurantWithOwner('price-tampering');
+
+        $meal = $this->makeMeal($restaurant, 18.50);
+
+        $response = $this->actingAs($owner, 'sanctum')
+            ->postJson("/api/restaurants/{$restaurant->id}/orders", [
+                'customer_name' => 'Tampering Test',
+                'phone' => '0600000000',
+                'address' => '123 Main Street',
+
+                'items' => [
+                    [
+                        'meal_id' => $meal->id,
+                        'quantity' => 2,
+
+                        // Malicious client-controlled values.
+                        'unit_price' => 0.01,
+                        'total_price' => 0.02,
+                    ],
+                ],
+
+                // Malicious client-controlled total.
+                'total' => 0.02,
+                'tax' => 0,
+            ]);
+
+        $response->assertStatus(201);
+
+        // Real DB price: 18.50 × 2 = 37.00
+        // Tax: 3.33
+        // Total: 40.33
+        $this->assertDatabaseHas('order_items', [
+            'meal_id' => $meal->id,
+            'quantity' => 2,
+            'unit_price' => 18.50,
+            'total_price' => 37.00,
+        ]);
+
+        $this->assertDatabaseHas('orders', [
+            'restaurant_id' => $restaurant->id,
+            'total' => 40.33,
+        ]);
     }
 }

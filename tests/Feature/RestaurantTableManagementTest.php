@@ -218,4 +218,38 @@ class RestaurantTableManagementTest extends TestCase
         $response->assertStatus(200);
         $this->assertDatabaseCount('restaurant_tables', 0);
     }
+    public function test_owner_cannot_delete_all_tables_of_another_restaurant(): void
+    {
+        [$ownerA, $restaurantA] = $this->makeRestaurantWithOwner('a');
+        [, $restaurantB] = $this->makeRestaurantWithOwner('b');
+
+        $tableB1 = RestaurantTable::create([
+            'restaurant_id' => $restaurantB->id,
+            'number' => 1,
+            'name' => 'Table B1',
+            'status' => 'available',
+        ]);
+
+        $tableB2 = RestaurantTable::create([
+            'restaurant_id' => $restaurantB->id,
+            'number' => 2,
+            'name' => 'Table B2',
+            'status' => 'available',
+        ]);
+
+        $response = $this->actingAs($ownerA, 'sanctum')
+            ->deleteJson("/api/restaurants/{$restaurantB->id}/tables/all");
+
+        $response->assertStatus(403);
+
+        $this->assertDatabaseHas('restaurant_tables', [
+            'id' => $tableB1->id,
+            'restaurant_id' => $restaurantB->id,
+        ]);
+
+        $this->assertDatabaseHas('restaurant_tables', [
+            'id' => $tableB2->id,
+            'restaurant_id' => $restaurantB->id,
+        ]);
+    }
 }

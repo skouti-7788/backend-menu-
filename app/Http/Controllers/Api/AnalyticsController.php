@@ -53,7 +53,19 @@ class AnalyticsController extends Controller
 
         $meals = $restaurant
             ->meals()
-            ->select('meals.*')
+            ->select([
+                'meals.id',
+                'meals.restaurant_id',
+                'meals.category_id',
+                'meals.name',
+                'meals.description',
+                'meals.price',
+                'meals.image',
+                'meals.status',
+                'meals.featured',
+                'meals.created_at',
+                'meals.updated_at',
+            ])
             ->withCount([
                 'orderItems as total_ordered' => function ($query) {
                     $query->selectRaw(
@@ -66,7 +78,20 @@ class AnalyticsController extends Controller
             ->get();
 
         return response()->json([
-            'popular_meals' => $meals,
+            'popular_meals' => $meals->map(fn ($meal) => [
+                'id' => $meal->id,
+                'restaurant_id' => $meal->restaurant_id,
+                'category_id' => $meal->category_id,
+                'name' => $meal->name,
+                'description' => $meal->description,
+                'price' => $meal->price,
+                'image_url' => $meal->image_url,
+                'status' => $meal->status->value,
+                'featured' => $meal->featured,
+                'total_ordered' => (int) $meal->total_ordered,
+                'created_at' => $meal->created_at,
+                'updated_at' => $meal->updated_at,
+            ]),
         ]);
     }
 

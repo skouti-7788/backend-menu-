@@ -217,4 +217,306 @@ class PublicMenuSecurityTest extends TestCase
         $response->assertStatus(422);
         $this->assertDatabaseMissing('orders', ['restaurant_id' => $restaurant->id]);
     }
+    public function test_public_order_calculates_total_and_reserves_table(): void
+    {
+        $owner = User::create([
+            'name' => 'Public Order Owner',
+            'email' => 'public-order-owner@example.com',
+            'password' => bcrypt('secret123'),
+            'role' => 'restaurant_manager',
+        ]);
+
+        $restaurant = Restaurant::create([
+            'user_id' => $owner->id,
+            'name' => 'Public Order Bistro',
+            'slug' => 'public-order-bistro',
+        ]);
+
+        $category = MenuCategory::create([
+            'restaurant_id' => $restaurant->id,
+            'name' => 'Main',
+            'status' => 'active',
+        ]);
+
+        $table = RestaurantTable::create([
+            'restaurant_id' => $restaurant->id,
+            'name' => 'Table 1',
+            'number' => 1,
+            'status' => 'available',
+        ]);
+
+        $meal = Meal::create([
+            'restaurant_id' => $restaurant->id,
+            'category_id' => $category->id,
+            'name' => 'Burger',
+            'description' => 'Fresh burger',
+            'price' => 18.50,
+            'status' => 'active',
+            'featured' => false,
+        ]);
+
+        $response = $this->postJson(
+            '/api/menu/' . $restaurant->slug . '/orders',
+            [
+                'customer_name' => 'Public Customer',
+                'phone' => '0600000000',
+                'address' => 'Table 1',
+                'table_token' => $table->qr_token,
+                // 'status' => 'completed',
+                'items' => [
+                    [
+                        'meal_id' => $meal->id,
+                        'quantity' => 2,
+                    ],
+                ],
+            ]
+        );
+
+        $response->assertStatus(201);
+
+        // 18.50 × 2 = 37.00
+        // 9% tax = 3.33
+        // Total = 40.33
+        $this->assertDatabaseHas('orders', [
+            'restaurant_id' => $restaurant->id,
+            'table_id' => $table->id,
+            'status' => 'pending',
+            'total' => 40.33,
+        ]);
+
+        $this->assertDatabaseHas('order_items', [
+            'meal_id' => $meal->id,
+            'quantity' => 2,
+            'unit_price' => 18.50,
+            'total_price' => 37.00,
+        ]);
+
+        $this->assertDatabaseHas('restaurant_tables', [
+            'id' => $table->id,
+            'status' => 'reserved',
+            
+        ]);
+    }
+    public function test_public_menu_rejects_invalid_language(): void
+    {
+        $owner = User::create([
+            'name' => 'Language Owner',
+            'email' => 'language-owner@example.com',
+            'password' => bcrypt('secret123'),
+            'role' => 'restaurant_manager',
+        ]);
+
+        $restaurant = Restaurant::create([
+            'user_id' => $owner->id,
+            'name' => 'Language Bistro',
+            'slug' => 'language-bistro',
+        ]);
+
+        $response = $this->getJson(
+            '/api/menu/' . $restaurant->slug . '?lang=de'
+        );
+
+        $response->assertStatus(422);
+    }
+
+    
+    public function test_record_view_rejects_invalid_language(): void
+    {
+        $owner = User::create([
+            'name' => 'View Owner',
+            'email' => 'view-owner@example.com',
+            'password' => bcrypt('secret123'),
+            'role' => 'restaurant_manager',
+        ]);
+
+        $restaurant = Restaurant::create([
+            'user_id' => $owner->id,
+            'name' => 'View Bistro',
+            'slug' => 'view-bistro',
+        ]);
+
+        $response = $this->postJson(
+            '/api/menu/' . $restaurant->slug . '/view?lang=de'
+        );
+
+        $response->assertStatus(422);
+
+        $this->assertDatabaseMissing('menu_views', [
+            'restaurant_id' => $restaurant->id,
+        ]);
+    }
+
+
+    public function test_record_view_accepts_valid_language_without_meal(): void
+    {
+        $owner = User::create([
+            'name' => 'Analytics Owner',
+            'email' => 'analytics-owner@example.com',
+            'password' => bcrypt('secret123'),
+            'role' => 'restaurant_manager',
+        ]);
+
+        $restaurant = Restaurant::create([
+            'user_id' => $owner->id,
+            'name' => 'Analytics Bistro',
+            'slug' => 'analytics-bistro',
+        ]);
+
+        $response = $this->postJson(
+            '/api/menu/' . $restaurant->slug . '/view?lang=fr'
+        );
+
+        $response->assertOk();
+
+        $this->assertDatabaseHas('menu_views', [
+            'restaurant_id' => $restaurant->id,
+            'meal_id' => null,
+            'language' => 'fr',
+        ]);
+    }
+
+
+    public function test_record_view_accepts_active_meal_from_same_restaurant(): void
+    {
+        $owner = User::create([
+            'name' => 'Meal View Owner',
+            'email' => 'meal-view-owner@example.com',
+            'password' => bcrypt('secret123'),
+            'role' => 'restaurant_manager',
+        ]);
+
+        $restaurant = Restaurant::create([
+            'user_id' => $owner->id,
+            'name' => 'Meal View Bistro',
+            'slug' => 'meal-view-bistro',
+        ]);
+
+        $category = MenuCategory::create([
+            'restaurant_id' => $restaurant->id,
+            'name' => 'Main',
+            'status' => 'active',
+        ]);
+
+        $meal = Meal::create([
+            'restaurant_id' => $restaurant->id,
+            'category_id' => $category->id,
+            'name' => 'Burger',
+            'description' => 'Fresh burger',
+            'price' => 15.00,
+            'status' => 'active',
+            'featured' => false,
+        ]);
+
+        $response = $this->postJson(
+            '/api/menu/' . $restaurant->slug . '/view?lang=en',
+            [
+                'meal_id' => $meal->id,
+            ]
+        );
+
+        $response->assertOk();
+
+        $this->assertDatabaseHas('menu_views', [
+            'restaurant_id' => $restaurant->id,
+            'meal_id' => $meal->id,
+            'language' => 'en',
+        ]);
+    }
+
+
+    public function test_record_view_rejects_meal_from_another_restaurant(): void
+    {
+        $owner = User::create([
+            'name' => 'Isolation Owner',
+            'email' => 'isolation-owner@example.com',
+            'password' => bcrypt('secret123'),
+            'role' => 'restaurant_manager',
+        ]);
+
+        $restaurantA = Restaurant::create([
+            'user_id' => $owner->id,
+            'name' => 'View Alpha',
+            'slug' => 'view-alpha',
+        ]);
+
+        $restaurantB = Restaurant::create([
+            'user_id' => $owner->id,
+            'name' => 'View Beta',
+            'slug' => 'view-beta',
+        ]);
+
+        $categoryB = MenuCategory::create([
+            'restaurant_id' => $restaurantB->id,
+            'name' => 'Desserts',
+            'status' => 'active',
+        ]);
+
+        $mealB = Meal::create([
+            'restaurant_id' => $restaurantB->id,
+            'category_id' => $categoryB->id,
+            'name' => 'Cake',
+            'description' => 'Chocolate cake',
+            'price' => 12.00,
+            'status' => 'active',
+            'featured' => false,
+        ]);
+
+        $response = $this->postJson(
+            '/api/menu/' . $restaurantA->slug . '/view',
+            [
+                'meal_id' => $mealB->id,
+                'lang' => 'en',
+            ]
+        );
+
+        $response->assertStatus(422);
+
+        $this->assertDatabaseMissing('menu_views', [
+            'restaurant_id' => $restaurantA->id,
+            'meal_id' => $mealB->id,
+        ]);
+    }
+    public function test_public_menu_hides_inactive_categories(): void
+    {
+        $owner = User::create([
+            'name' => 'Category Owner',
+            'email' => 'category-owner@example.com',
+            'password' => bcrypt('secret123'),
+            'role' => 'restaurant_manager',
+        ]);
+
+        $restaurant = Restaurant::create([
+            'user_id' => $owner->id,
+            'name' => 'Category Bistro',
+            'slug' => 'category-bistro',
+        ]);
+
+        $activeCategory = MenuCategory::create([
+            'restaurant_id' => $restaurant->id,
+            'name' => 'Main Dishes',
+            'status' => 'active',
+        ]);
+
+        MenuCategory::create([
+            'restaurant_id' => $restaurant->id,
+            'name' => 'Hidden Category',
+            'status' => 'inactive',
+        ]);
+
+        $response = $this->getJson(
+            '/api/menu/' . $restaurant->slug
+        );
+
+        $response->assertOk();
+
+        $categories = $response->json('categories');
+
+        $this->assertCount(1, $categories);
+        $this->assertSame($activeCategory->id, $categories[0]['id']);
+        $this->assertSame('Main Dishes', $categories[0]['name']);
+
+        $response->assertJsonMissing([
+            'name' => 'Hidden Category',
+        ]);
+    }
 }

@@ -62,127 +62,88 @@ class OrderController extends Controller
             'orders.add'
         );
 
-        $items = collect(
-            $request->input('items', [])
-        );
+        $items = collect($request->input('items', []));
 
-        $order = DB::transaction(
-            function () use (
-                $restaurant,
-                $request,
-                $items
-            ) {
+        $order = DB::transaction(function () use ($restaurant, $request, $items) {
+            $order = Order::create([
+                'restaurant_id' => $restaurant->id,
+                'customer_name' => $request->customer_name,
+                'phone' => $request->phone,
+                'address' => $request->address,
+                'status' => $request->status
+                    ? OrderStatus::from($request->status)
+                    : OrderStatus::PENDING,
+                'total' => 0,
+                'table_id' => $request->table_id,
+            ]);
 
-                $order = Order::create([
-                    'restaurant_id' =>
-                        $restaurant->id,
+            $subtotalCents = 0;
 
-                    'customer_name' =>
-                        $request->customer_name,
+            foreach ($items as $item) {
+                $meal = $restaurant
+                    ->meals()
+                    ->whereKey($item['meal_id'])
+                    ->where('status', 'active')
+                    ->firstOrFail();
 
-                    'phone' =>
-                        $request->phone,
+                $quantity = (int) ($item['quantity'] ?? 0);
 
-                    'address' =>
-                        $request->address,
-
-                    'status' =>
-                        $request->status
-                            ? OrderStatus::from(
-                                $request->status
-                            )
-                            : OrderStatus::PENDING,
-
-                    'total' => 0,
-
-                    'table_id' =>
-                        $request->table_id,
-                ]);
-
-                $subtotal = 0;
-
-                foreach (
-                    $items as $item
-                ) {
-
-                    /**
-                     * Important security:
-                     *
-                     * The meal MUST belong
-                     * to this restaurant.
-                     */
-                    $meal =
-                        $restaurant
-                            ->meals()
-                            ->whereKey(
-                                $item['meal_id']
-                            )
-                            ->where(
-                                'status',
-                                'active'
-                            )
-                            ->firstOrFail();
-
-                    $quantity =
-                        (int) (
-                            $item['quantity']
-                            ?? 0
-                        );
-
-                    $lineTotal =
-                        (float) $meal->price
-                        * $quantity;
-
-                    $subtotal +=
-                        $lineTotal;
-
-                    OrderItem::create([
-                        'order_id' =>
-                            $order->id,
-
-                        'meal_id' =>
-                            $meal->id,
-
-                        'quantity' =>
-                            $quantity,
-
-                        'unit_price' =>
-                            $meal->price,
-
-                        'total_price' =>
-                            $lineTotal,
-
-                        'notes' =>
-                            (string) (
-                                $item['notes']
-                                ?? ''
-                            ),
-                    ]);
-                }
-
-                /**
-                 * Tax
-                 */
-                $tax = round(
-                    $subtotal * 0.09,
-                    2
+                // Convert price to cents and calculate using integers.
+                $unitPriceCents = (int) round(
+                    ((float) $meal->price) * 100
                 );
 
-                $total = round(
-                    $subtotal + $tax,
-                    2
-                );
+                $lineTotalCents = $unitPriceCents * $quantity;
 
-                $order->update([
-                    'total' => $total,
-                ]);
+                $subtotalCents += $lineTotalCents;
 
-                return $order->load([
-                    'items',
-                    'table',
+                OrderItem::create([
+                    'order_id' => $order->id,
+                    'meal_id' => $meal->id,
+                    'quantity' => $quantity,
+                    'unit_price' => number_format(
+                        $unitPriceCents / 100,
+                        2,
+                        '.',
+                        ''
+                    ),
+                    'total_price' => number_format(
+                        $lineTotalCents / 100,
+                        2,
+                        '.',
+                        ''
+                    ),
+                    'notes' => (string) ($item['notes'] ?? ''),
                 ]);
             }
-        );
+
+            // 9% tax, calculated in cents.
+            $taxCents = (int) round($subtotalCents * 0.09);
+
+            $totalCents = $subtotalCents + $taxCents;
+
+            $order->update([
+                'total' => number_format(
+                    $totalCents / 100,
+                    2,
+                    '.',
+                    ''
+                ),
+            ]);
+
+            // A dashboard order reserves its selected table.
+            if ($order->table_id !== null) {
+                $table = $order->table;
+
+                if ($table) {
+                    $table->update([
+                        'status' => 'reserved',
+                    ]);
+                }
+            }
+
+            return $order->load(['items', 'table']);
+        });
 
         return new OrderResource(
             $order
@@ -471,148 +432,6 @@ class OrderController extends Controller
         }
     }
 
-    /**
-     * =====================================================
-     * REQUIRE PERMISSION
-     * =====================================================
-     *
-     * ADMIN
-     *   -> full access
-     *
-     * OWNER
-     *   -> access to his restaurants
-     *
-     * STAFF
-     *   -> access only to his restaurant
-     *   -> requires specific permission
-     */
-    protected function requirePermission(
-        Restaurant $restaurant,
-        string $permission
-    ): void {
 
-        $user = auth()->user();
-
-        /**
-         * Not authenticated.
-         */
-        if (! $user) {
-            abort(
-                401,
-                'Unauthenticated.'
-            );
-        }
-
-        /**
-         * =================================================
-         * ADMIN
-         * =================================================
-         */
-        if (
-            $user->isAdmin()
-        ) {
-            return;
-        }
-
-        /**
-         * =================================================
-         * OWNER
-         * =================================================
-         *
-         * Restaurant is owned by user.
-         */
-        if (
-            $user->isOwner()
-        ) {
-
-            if (
-                (int) $restaurant->user_id !==
-                (int) $user->id
-            ) {
-                abort(
-                    403,
-                    'You are not authorized to manage this restaurant.'
-                );
-            }
-
-            /**
-             * Owner has all permissions.
-             */
-            return;
-        }
-
-        /**
-         * =================================================
-         * STAFF
-         * =================================================
-         */
-        if (
-            $user->isStaff()
-        ) {
-
-            /**
-             * Staff can ONLY access
-             * his assigned restaurant.
-             */
-            if (
-                (int) $user->restaurant_id !==
-                (int) $restaurant->id
-            ) {
-                abort(
-                    403,
-                    'You are not authorized to manage this restaurant.'
-                );
-            }
-
-            /**
-             * Check permission.
-             */
-            if (
-                ! $user->hasPermission(
-                    $permission
-                )
-            ) {
-                abort(
-                    403,
-                    'You do not have permission to perform this action.'
-                );
-            }
-
-            return;
-        }
-
-        /**
-         * =================================================
-         * RESTAURANT MANAGER
-         * =================================================
-         *
-         * Kept for compatibility with
-         * your previous architecture.
-         */
-        if (
-            $user->isRestaurantManager()
-        ) {
-
-            if (
-                (int) $restaurant->user_id !==
-                (int) $user->id
-            ) {
-                abort(
-                    403,
-                    'You are not authorized to manage this restaurant.'
-                );
-            }
-
-            return;
-        }
-
-        /**
-         * Unknown role.
-         */
-        abort(
-            403,
-            'You are not authorized to manage this restaurant.'
-        );
-    }
 }
  

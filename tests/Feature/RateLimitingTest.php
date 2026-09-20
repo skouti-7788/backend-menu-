@@ -2,6 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Models\MenuCategory;
+use App\Models\Meal;
+use App\Models\Restaurant;
+use App\Models\RestaurantTable;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -24,7 +28,6 @@ class RateLimitingTest extends TestCase
             'role' => 'owner',
         ]);
 
-        // 6 wrong attempts should each return 401 (invalid credentials), not 429 yet.
         for ($i = 0; $i < 6; $i++) {
             $response = $this->postJson('/api/auth/login', [
                 'email' => $user->email,
@@ -34,7 +37,6 @@ class RateLimitingTest extends TestCase
             $response->assertStatus(401);
         }
 
-        // The 7th attempt (even with the CORRECT password) must be throttled.
         $response = $this->postJson('/api/auth/login', [
             'email' => $user->email,
             'password' => 'correct-password',
@@ -65,6 +67,151 @@ class RateLimitingTest extends TestCase
             'password' => 'password123',
             'password_confirmation' => 'password123',
         ]);
+
+        $response->assertStatus(429);
+    }
+
+    /**
+     * Public menu endpoint must be protected against excessive requests.
+     */
+    public function test_public_menu_is_rate_limited_after_sixty_requests(): void
+    {
+        $owner = User::create([
+            'name' => 'Menu Rate Owner',
+            'email' => 'menu-rate@example.com',
+            'password' => Hash::make('secret123'),
+            'role' => 'restaurant_manager',
+        ]);
+
+        $restaurant = Restaurant::create([
+            'user_id' => $owner->id,
+            'name' => 'Rate Limited Bistro',
+            'slug' => 'rate-limited-bistro',
+        ]);
+
+        for ($i = 0; $i < 60; $i++) {
+            $response = $this->getJson('/api/menu/' . $restaurant->slug);
+
+            $this->assertNotEquals(
+                429,
+                $response->status(),
+                "Request {$i} was unexpectedly rate limited."
+            );
+        }
+
+        $response = $this->getJson('/api/menu/' . $restaurant->slug);
+
+        $response->assertStatus(429);
+    }
+
+    /**
+     * Public menu view tracking must be rate limited.
+     */
+    public function test_public_menu_view_is_rate_limited_after_thirty_requests(): void
+    {
+        $owner = User::create([
+            'name' => 'View Rate Owner',
+            'email' => 'view-rate@example.com',
+            'password' => Hash::make('secret123'),
+            'role' => 'restaurant_manager',
+        ]);
+
+        $restaurant = Restaurant::create([
+            'user_id' => $owner->id,
+            'name' => 'View Rate Bistro',
+            'slug' => 'view-rate-bistro',
+        ]);
+
+        for ($i = 0; $i < 30; $i++) {
+            $response = $this->postJson(
+                '/api/menu/' . $restaurant->slug . '/view'
+            );
+
+            $this->assertNotEquals(
+                429,
+                $response->status(),
+                "Request {$i} was unexpectedly rate limited."
+            );
+        }
+
+        $response = $this->postJson(
+            '/api/menu/' . $restaurant->slug . '/view'
+        );
+
+        $response->assertStatus(429);
+    }
+
+    /**
+     * Public order creation must be rate limited to reduce order spam.
+     */
+    public function test_public_orders_are_rate_limited_after_ten_requests(): void
+    {
+        $owner = User::create([
+            'name' => 'Order Rate Owner',
+            'email' => 'order-rate@example.com',
+            'password' => Hash::make('secret123'),
+            'role' => 'restaurant_manager',
+        ]);
+
+        $restaurant = Restaurant::create([
+            'user_id' => $owner->id,
+            'name' => 'Order Rate Bistro',
+            'slug' => 'order-rate-bistro',
+        ]);
+
+        $category = MenuCategory::create([
+            'restaurant_id' => $restaurant->id,
+            'name' => 'Main',
+            'status' => 'active',
+        ]);
+
+        $meal = Meal::create([
+            'restaurant_id' => $restaurant->id,
+            'category_id' => $category->id,
+            'name' => 'Burger',
+            'description' => 'Fresh burger',
+            'price' => 15.00,
+            'status' => 'active',
+            'featured' => false,
+        ]);
+
+        $table = RestaurantTable::create([
+            'restaurant_id' => $restaurant->id,
+            'name' => 'Table 1',
+            'number' => 1,
+            'status' => 'available',
+        ]);
+
+        $payload = [
+            'customer_name' => 'Test Customer',
+            'phone' => '0600000000',
+            'address' => 'Table 1',
+            'table_token' => $table->qr_token,
+            'items' => [
+                [
+                    'meal_id' => $meal->id,
+                    'quantity' => 1,
+                ],
+            ],
+        ];
+
+        for ($i = 0; $i < 10; $i++) {
+            $response = $this->postJson(
+                '/api/menu/' . $restaurant->slug . '/orders',
+                $payload
+            );
+
+            $this->assertNotEquals(
+                429,
+                $response->status(),
+                "Request {$i} was unexpectedly rate limited."
+            );
+        }
+
+        $response = $this->postJson(
+            '/api/menu/' . $restaurant->slug . '/orders',
+            $payload
+        );
 
         $response->assertStatus(429);
     }
