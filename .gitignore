@@ -26,3 +26,9 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 /vendor/
+
+# Laravel logs
+storage/logs/*.log
+
+# Backup source files
+*.backup
