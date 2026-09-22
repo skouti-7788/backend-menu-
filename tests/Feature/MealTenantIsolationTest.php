@@ -6,6 +6,8 @@ use App\Models\Meal;
 use App\Models\MenuCategory;
 use App\Models\Restaurant;
 use App\Models\User;
+use App\Models\Order;
+use App\Models\OrderItem;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
  
@@ -123,30 +125,143 @@ class MealTenantIsolationTest extends TestCase
         ]);
     }
     public function test_owner_cannot_create_a_meal_using_a_category_from_another_restaurant(): void
-{
-    [$ownerA, $restaurantA] = $this->makeRestaurantWithOwner('category-a');
-    [$ownerB, $restaurantB] = $this->makeRestaurantWithOwner('category-b');
+    {
+        [$ownerA, $restaurantA] = $this->makeRestaurantWithOwner('category-a');
+        [$ownerB, $restaurantB] = $this->makeRestaurantWithOwner('category-b');
 
-    $categoryB = MenuCategory::create([
-        'restaurant_id' => $restaurantB->id,
-        'name' => 'Category B',
-        'status' => 'active',
-    ]);
-
-    $response = $this->actingAs($ownerA, 'sanctum')
-        ->postJson("/api/restaurants/{$restaurantA->id}/meals", [
-            'category_id' => $categoryB->id,
-            'name' => 'Invalid Cross Tenant Meal',
-            'price' => 10.00,
+        $categoryB = MenuCategory::create([
+            'restaurant_id' => $restaurantB->id,
+            'name' => 'Category B',
             'status' => 'active',
         ]);
 
-    $response->assertStatus(422);
+        $response = $this->actingAs($ownerA, 'sanctum')
+            ->postJson("/api/restaurants/{$restaurantA->id}/meals", [
+                'category_id' => $categoryB->id,
+                'name' => 'Invalid Cross Tenant Meal',
+                'price' => 10.00,
+                'status' => 'active',
+            ]);
 
-    $this->assertDatabaseMissing('meals', [
-        'restaurant_id' => $restaurantA->id,
-        'name' => 'Invalid Cross Tenant Meal',
-    ]);
-}
+        $response->assertStatus(422);
+
+        $this->assertDatabaseMissing('meals', [
+            'restaurant_id' => $restaurantA->id,
+            'name' => 'Invalid Cross Tenant Meal',
+        ]);
+    }
+    public function test_deleting_a_meal_deactivates_it_and_preserves_order_history(): void
+    {
+        [$owner, $restaurant] = $this->makeRestaurantWithOwner('delete-history');
+
+        $category = MenuCategory::create([
+            'restaurant_id' => $restaurant->id,
+            'name' => 'Main Dishes',
+            'status' => 'active',
+        ]);
+
+        $meal = Meal::create([
+            'restaurant_id' => $restaurant->id,
+            'category_id' => $category->id,
+            'name' => 'Historical Steak',
+            'price' => 49.00,
+            'status' => 'active',
+            'featured' => false,
+        ]);
+
+        $order = Order::create([
+            'restaurant_id' => $restaurant->id,
+            'customer_name' => 'Test Customer',
+            'phone' => '0600000000',
+            'address' => 'Test Address',
+            'total' => 53.41,
+            'status' => 'pending',
+            'table_id' => null,
+            'table_token' => null,
+        ]);
+
+        $orderItem =  OrderItem::create([
+            'order_id' => $order->id,
+            'meal_id' => $meal->id,
+            'quantity' => 1,
+            'unit_price' => 49.00,
+            'total_price' => 49.00,
+            'notes' =>  '',
+        ]);
+
+        $response = $this->actingAs($owner, 'sanctum')
+            ->deleteJson(
+                "/api/restaurants/{$restaurant->id}/meals/{$meal->id}"
+            );
+
+        $response->assertStatus(200);
+
+        $this->assertDatabaseHas('meals', [
+            'id' => $meal->id,
+            'restaurant_id' => $restaurant->id,
+            'status' => 'inactive',
+        ]);
+
+        $this->assertDatabaseHas('orders', [
+            'id' => $order->id,
+            'restaurant_id' => $restaurant->id,
+        ]);
+
+        $this->assertDatabaseHas('order_items', [
+            'id' => $orderItem->id,
+            'order_id' => $order->id,
+            'meal_id' => $meal->id,
+            'quantity' => 1,
+            'unit_price' => 49.00,
+            'total_price' => 49.00,
+        ]);
+    }
+    public function test_deleting_all_meals_deactivates_them_without_removing_them(): void
+    {
+        [$owner, $restaurant] = $this->makeRestaurantWithOwner('delete-all');
+
+        $category = MenuCategory::create([
+            'restaurant_id' => $restaurant->id,
+            'name' => 'Main Dishes',
+            'status' => 'active',
+        ]);
+
+        $mealA = Meal::create([
+            'restaurant_id' => $restaurant->id,
+            'category_id' => $category->id,
+            'name' => 'Meal A',
+            'price' => 20.00,
+            'status' => 'active',
+            'featured' => false,
+        ]);
+
+        $mealB = Meal::create([
+            'restaurant_id' => $restaurant->id,
+            'category_id' => $category->id,
+            'name' => 'Meal B',
+            'price' => 30.00,
+            'status' => 'active',
+            'featured' => false,
+        ]);
+
+        $response = $this->actingAs($owner, 'sanctum')
+            ->deleteJson(
+                "/api/restaurants/{$restaurant->id}/meals/all"
+            );
+
+        $response->assertStatus(200);
+
+        $this->assertDatabaseHas('meals', [
+            'id' => $mealA->id,
+            'status' => 'inactive',
+        ]);
+
+        $this->assertDatabaseHas('meals', [
+            'id' => $mealB->id,
+            'status' => 'inactive',
+        ]);
+
+        $this->assertDatabaseCount('meals', 2);
+    }
 }
  

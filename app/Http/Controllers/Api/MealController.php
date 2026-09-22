@@ -11,6 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use App\Enums\MealStatus;
 use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 
 class MealController extends Controller
@@ -255,6 +256,41 @@ class MealController extends Controller
         return new MealResource($meal);
     }
 
+    // public function destroy(
+    //     Request $request,
+    //     Restaurant $restaurant,
+    //     Meal $meal
+    // ): JsonResponse {
+    //     $this->requirePermission(
+    //         $restaurant,
+    //         'meals.delete'
+    //     );
+
+    //     $this->ensureMealBelongsToRestaurant(
+    //         $meal,
+    //         $restaurant
+    //     );
+
+    //     $image = $meal->image;
+    //     $publicId = $meal->image_public_id;
+
+    //     $meal->delete();
+
+    //     /*
+    //     |--------------------------------------------------------------------------
+    //     | Delete image after deleting the meal
+    //     |--------------------------------------------------------------------------
+    //     */
+
+    //     $this->deleteMealImage(
+    //         $image,
+    //         $publicId
+    //     );
+
+    //     return response()->json([
+    //         'message' => 'Meal deleted successfully.',
+    //     ]);
+    // }
     public function destroy(
         Request $request,
         Restaurant $restaurant,
@@ -270,27 +306,58 @@ class MealController extends Controller
             $restaurant
         );
 
-        $image = $meal->image;
-        $publicId = $meal->image_public_id;
-
-        $meal->delete();
-
-        /*
-        |--------------------------------------------------------------------------
-        | Delete image after deleting the meal
-        |--------------------------------------------------------------------------
-        */
-
-        $this->deleteMealImage(
-            $image,
-            $publicId
-        );
+        $meal->update([
+            'status' => MealStatus::INACTIVE,
+        ]);
 
         return response()->json([
             'message' => 'Meal deleted successfully.',
         ]);
     }
+    // public function deleteAllMeals(
+    //     Request $request,
+    //     Restaurant $restaurant
+    // ): JsonResponse {
+    //     $this->requirePermission(
+    //         $restaurant,
+    //         'meals.delete'
+    //     );
 
+    //     $meals = $restaurant
+    //         ->meals()
+    //         ->get([
+    //             'id',
+    //             'image',
+    //             'image_public_id',
+    //         ]);
+
+    //     /*
+    //     |--------------------------------------------------------------------------
+    //     | Delete database records
+    //     |--------------------------------------------------------------------------
+    //     */
+
+    //     $restaurant
+    //         ->meals()
+    //         ->delete();
+
+    //     /*
+    //     |--------------------------------------------------------------------------
+    //     | Delete Cloudinary images
+    //     |--------------------------------------------------------------------------
+    //     */
+
+    //     foreach ($meals as $meal) {
+    //         $this->deleteMealImage(
+    //             $meal->image,
+    //             $meal->image_public_id
+    //         );
+    //     }
+
+    //     return response()->json([
+    //         'message' => 'All meals deleted successfully.',
+    //     ]);
+    // }
     public function deleteAllMeals(
         Request $request,
         Restaurant $restaurant
@@ -300,42 +367,16 @@ class MealController extends Controller
             'meals.delete'
         );
 
-        $meals = $restaurant
-            ->meals()
-            ->get([
-                'id',
-                'image',
-                'image_public_id',
-            ]);
-
-        /*
-        |--------------------------------------------------------------------------
-        | Delete database records
-        |--------------------------------------------------------------------------
-        */
-
         $restaurant
             ->meals()
-            ->delete();
-
-        /*
-        |--------------------------------------------------------------------------
-        | Delete Cloudinary images
-        |--------------------------------------------------------------------------
-        */
-
-        foreach ($meals as $meal) {
-            $this->deleteMealImage(
-                $meal->image,
-                $meal->image_public_id
-            );
-        }
+            ->update([
+                'status' => MealStatus::INACTIVE,
+            ]);
 
         return response()->json([
             'message' => 'All meals deleted successfully.',
         ]);
     }
-
     /*
     |--------------------------------------------------------------------------
     | Authorization
