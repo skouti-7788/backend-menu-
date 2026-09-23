@@ -103,11 +103,20 @@ class MenuController extends Controller
                 'image_url' => $category->image ? url('storage/'.$category->image) : null,
             ]),
             'meals' => $meals,
-            'tables' => $restaurant->tables()->orderBy('number')->get()->map(fn (RestaurantTable $table) => [
-                'id' => $table->id,
-                'name' => $table->name,
+            // 'tables' => $restaurant->tables()->orderBy('number')->get()->map(fn (RestaurantTable $table) => [
+            //     'id' => $table->id,
+            //     'name' => $table->name,
+            //     'number' => $table->number,
+            //     'status' => $table->status,
+
+            // ]),
+            'tables' => $restaurant->tables()
+            ->where('status', '!=', 'inactive')
+            ->orderBy('number')
+            ->get()
+            ->map(fn (RestaurantTable $table) => [
                 'number' => $table->number,
-                'status' => $table->status,
+                'qr_token' => $table->qr_token,
             ]),
         ]);
     }
