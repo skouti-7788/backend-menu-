@@ -13,7 +13,7 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\Api\RestaurantTableController;
 use App\Http\Controllers\Api\RestaurantAppearanceController;
 use App\Http\Controllers\Api\StaffController;
- 
+use App\Http\Controllers\Api\PasswordController;
 Route::prefix('auth')->group(function () {
     // throttle:6,1 => max 6 requests / minute per IP.
     // Login is the main brute-force target, register prevents mass account spam.
@@ -53,7 +53,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::apiResource('meals', MealController::class)->shallow();
         Route::apiResource('orders', OrderController::class)->shallow();
     });
- 
+    // Change password — authenticated user only
+    Route::put('auth/password', [PasswordController::class, 'update'])
+        ->middleware('throttle:5,1');
     Route::put('orders/{order}/status', [OrderController::class, 'updateStatus']);
     Route::delete('orders/{order}/delete', [OrderController::class, 'destroy']);
  
