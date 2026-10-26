@@ -17,15 +17,13 @@ class ForgotPasswordController extends Controller
         $request->validate([
             'email' => ['required', 'email'],
         ]);
-        dd($request->validate([
-            'email' => ['required', 'email'],
-        ]));
+        
         
         try {
             $status = Password::sendResetLink(
                 $request->only('email')
             );
-            dd($status);
+           
             if ($status === Password::RESET_LINK_SENT) {
                 return response()->json([
                     'message' => 'If the account exists, a password reset link will be sent to its email.',
