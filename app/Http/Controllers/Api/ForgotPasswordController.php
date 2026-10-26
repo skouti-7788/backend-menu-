@@ -14,35 +14,30 @@ class ForgotPasswordController extends Controller
 {
     public function sendLink(Request $request)
     {
-        // $request->validate([
-        //     'email' => ['required', 'email'],
-        // ]);
-
-        // $status = Password::sendResetLink(
-        //     $request->only('email')
-        // );
-
-        // if ($status === Password::RESET_LINK_SENT) {
-        //     return response()->json([
-        //         'message' => 'If the account exists, a password reset link will be sent to its email.',
-        //     ]);
-        // }
-
-        // if ($status === Password::RESET_THROTTLED) {
-        //     return response()->json([
-        //         'message' => 'Please wait before requesting another reset link.',
-        //     ], 429);
-        // }
-
-        // // Avoid revealing whether an email is registered.
-        // return response()->json([
-        //     'message' => 'If the account exists, a password reset link will be sent to its email.',
-        // ]);
+        $request->validate([
+            'email' => ['required', 'email'],
+        ]);
 
         try {
             $status = Password::sendResetLink(
                 $request->only('email')
             );
+
+            if ($status === Password::RESET_LINK_SENT) {
+                return response()->json([
+                    'message' => 'If the account exists, a password reset link will be sent to its email.',
+                ]);
+            }
+
+            if ($status === Password::RESET_THROTTLED) {
+                return response()->json([
+                    'message' => 'Please wait before requesting another reset link.',
+                ], 429);
+            }
+
+            return response()->json([
+                'message' => 'If the account exists, a password reset link will be sent to its email.',
+            ]);
         } catch (\Throwable $e) {
             Log::error('Forgot password failed', [
                 'exception' => get_class($e),
@@ -55,7 +50,6 @@ class ForgotPasswordController extends Controller
                 'message' => 'Unable to process the password reset request.',
             ], 500);
         }
-
     }
 
     public function reset(Request $request)
