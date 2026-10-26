@@ -9,35 +9,53 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
-
+use Illuminate\Support\Facades\Log;
 class ForgotPasswordController extends Controller
 {
     public function sendLink(Request $request)
     {
-        $request->validate([
-            'email' => ['required', 'email'],
-        ]);
+        // $request->validate([
+        //     'email' => ['required', 'email'],
+        // ]);
 
-        $status = Password::sendResetLink(
-            $request->only('email')
-        );
+        // $status = Password::sendResetLink(
+        //     $request->only('email')
+        // );
 
-        if ($status === Password::RESET_LINK_SENT) {
-            return response()->json([
-                'message' => 'If the account exists, a password reset link will be sent to its email.',
+        // if ($status === Password::RESET_LINK_SENT) {
+        //     return response()->json([
+        //         'message' => 'If the account exists, a password reset link will be sent to its email.',
+        //     ]);
+        // }
+
+        // if ($status === Password::RESET_THROTTLED) {
+        //     return response()->json([
+        //         'message' => 'Please wait before requesting another reset link.',
+        //     ], 429);
+        // }
+
+        // // Avoid revealing whether an email is registered.
+        // return response()->json([
+        //     'message' => 'If the account exists, a password reset link will be sent to its email.',
+        // ]);
+
+        try {
+            $status = Password::sendResetLink(
+                $request->only('email')
+            );
+        } catch (\Throwable $e) {
+            Log::error('Forgot password failed', [
+                'exception' => get_class($e),
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
             ]);
-        }
 
-        if ($status === Password::RESET_THROTTLED) {
             return response()->json([
-                'message' => 'Please wait before requesting another reset link.',
-            ], 429);
+                'message' => 'Unable to process the password reset request.',
+            ], 500);
         }
 
-        // Avoid revealing whether an email is registered.
-        return response()->json([
-            'message' => 'If the account exists, a password reset link will be sent to its email.',
-        ]);
     }
 
     public function reset(Request $request)
