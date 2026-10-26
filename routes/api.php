@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\RestaurantTableController;
 use App\Http\Controllers\Api\RestaurantAppearanceController;
 use App\Http\Controllers\Api\StaffController;
 use App\Http\Controllers\Api\PasswordController;
+use App\Http\Controllers\Api\ForgotPasswordController;
 Route::prefix('auth')->group(function () {
     // throttle:6,1 => max 6 requests / minute per IP.
     // Login is the main brute-force target, register prevents mass account spam.
@@ -24,7 +25,17 @@ Route::prefix('auth')->group(function () {
         Route::post('logout', [AuthController::class, 'logout']);
     });
 });
- 
+Route::prefix('auth')->group(function () {
+    Route::post('forgot-password', [
+        ForgotPasswordController::class,
+        'sendLink',
+    ])->middleware('throttle:5,1');
+
+    Route::post('reset-password', [
+        ForgotPasswordController::class,
+        'reset',
+    ])->middleware('throttle:5,1');
+});
 // Current authenticated user
 Route::middleware('auth:sanctum')->get('user', function (Request $request) {
     $user = $request->user();
