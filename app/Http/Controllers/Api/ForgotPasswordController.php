@@ -49,6 +49,7 @@ class ForgotPasswordController extends Controller
 
             return response()->json([
                 'message' => 'Unable to process the password reset request.',
+                'error_type' => class_basename($e),
             ], 500);
         }
     }
