@@ -24,18 +24,27 @@ Route::prefix('auth')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('logout', [AuthController::class, 'logout']);
     });
-});
-Route::prefix('auth')->group(function () {
-    Route::post('forgot-password', [
+    Route::post('forgot-password',[
         ForgotPasswordController::class,
         'sendLink',
     ])->middleware('throttle:5,1');
 
-    Route::post('reset-password', [
+    Route::post('reset-password',[
         ForgotPasswordController::class,
         'reset',
     ])->middleware('throttle:5,1');
 });
+// Route::prefix('auth')->group(function () {
+//     Route::post('forgot-password', [
+//         ForgotPasswordController::class,
+//         'sendLink',
+//     ])->middleware('throttle:5,1');
+
+//     Route::post('reset-password', [
+//         ForgotPasswordController::class,
+//         'reset',
+//     ])->middleware('throttle:5,1');
+// });
 // Current authenticated user
 Route::middleware('auth:sanctum')->get('user', function (Request $request) {
     $user = $request->user();
