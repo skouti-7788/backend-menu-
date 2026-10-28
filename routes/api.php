@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\RestaurantAppearanceController;
 use App\Http\Controllers\Api\StaffController;
 use App\Http\Controllers\Api\PasswordController;
 use App\Http\Controllers\Api\ForgotPasswordController;
+
 Route::prefix('auth')->group(function () {
     // throttle:6,1 => max 6 requests / minute per IP.
     // Login is the main brute-force target, register prevents mass account spam.
