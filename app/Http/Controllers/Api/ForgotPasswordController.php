@@ -38,20 +38,27 @@ class ForgotPasswordController extends Controller
 
             return response()->json([
                 'message' => 'If the account exists, a password reset link will be sent to its email.',
-            ]);
-        } catch (\Throwable $e) {
-            Log::error('Forgot password failed', [
-                'exception' => get_class($e),
-                'message' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-            ]);
+                ]);
+            } catch (\Throwable $e) {
+                $details = [
+                    'exception' => get_class($e),
+                    'message' => $e->getMessage(),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                ];
 
-            return response()->json([
-                'message' => 'Unable to process the password reset request.',
-                'error_type' => class_basename($e),
-            ], 500);
-        }
+                Log::error('Forgot password failed', $details);
+
+                error_log(
+                    '[FORGOT_PASSWORD_FAILED] ' .
+                    json_encode($details, JSON_UNESCAPED_SLASHES)
+                );
+
+                return response()->json([
+                    'message' => 'Unable to process the password reset request.',
+                    'error_type' => class_basename($e),
+                ], 500);
+            }
     }
 
     public function reset(Request $request)
