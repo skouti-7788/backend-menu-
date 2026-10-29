@@ -36,7 +36,9 @@ return [
     */
 
     'mailers' => [
-
+        'hubfly' => [
+            'transport' => 'hubfly',
+        ],
         'smtp' => [
             'transport' => 'smtp',
             'scheme' => env('MAIL_SCHEME'),
@@ -61,9 +63,9 @@ return [
             // ],
         ],
 
-        'resend' => [
-            'transport' => 'resend',
-        ],
+        // 'resend' => [
+        //     'transport' => 'resend',
+        // ],
 
         'sendmail' => [
             'transport' => 'sendmail',
