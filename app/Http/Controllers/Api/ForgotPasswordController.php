@@ -17,8 +17,14 @@ class ForgotPasswordController extends Controller
         $request->validate([
             'email' => ['required', 'email'],
         ]);
-        
-        
+
+        $user = User::where('email', $request->input('email'))->first();
+        if(!$user) {
+            return response()->json([
+                'message' => 'No account found with this email address.',
+            ], 422);
+        }
+
         try {
             $status = Password::sendResetLink(
                 $request->only('email')
@@ -45,18 +51,9 @@ class ForgotPasswordController extends Controller
                     'message' => $e->getMessage(),
                     'file' => $e->getFile(),
                     'line' => $e->getLine(),
-                ];
-
-                Log::error('Forgot password failed', $details);
-
-                error_log(
-                    '[FORGOT_PASSWORD_FAILED] ' .
-                    json_encode($details, JSON_UNESCAPED_SLASHES)
-                );
-
+                ]; 
                 return response()->json([
                     'message' => 'Unable to process the password reset request.',
-                    'error_type' => class_basename($e),
                 ], 500);
             }
     }
