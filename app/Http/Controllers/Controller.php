@@ -245,8 +245,8 @@ abstract class Controller
         if ($user->isAdmin()) {
             $isAuthorized = true;
         } elseif (
-            $restaurant->user_id === $user->id
-            && ($user->isOwner() || $user->isRestaurantManager())
+            $user->isOwner()
+            && (int) $restaurant->user_id === (int) $user->id
         ) {
             $isAuthorized = true;
         } else {
@@ -254,7 +254,10 @@ abstract class Controller
                 $user->restaurant_id
                 && (int) $user->restaurant_id === (int) $restaurant->id;
 
-            if ($belongsToRestaurant && $user->isStaff()) {
+            if (
+                $belongsToRestaurant
+                && ($user->isStaff() || $user->isRestaurantManager())
+            ) {
                 $isAuthorized = $user->hasPermission($permission);
             }
         }
