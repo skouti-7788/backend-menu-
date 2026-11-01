@@ -58,9 +58,19 @@ class PlanController extends Controller
         $plan = config('plans.'.$validated['plan']);
         $amount = (int) $plan['price_'.$validated['billing_interval']];
 
-        // Free Starter can be activated immediately. Paid plans stay pending
-        // until a payment provider confirms the transaction.
+        // Only the free Starter plan can be activated while no free payment
+        // provider is configured. Keep paid plans visible in the catalogue,
+        // but never create a pending or active paid subscription.
         $isFree = $amount === 0;
+
+        if (! $isFree) {
+            return response()->json([
+                'message' => 'Pro and Business plans are coming soon. Paid activation is temporarily unavailable.',
+                'payment_required' => true,
+                'payment_available' => false,
+                'subscription' => null,
+            ], 409);
+        }
 
         [$subscription, $alreadyActive] = DB::transaction(function () use (
             $restaurant,
