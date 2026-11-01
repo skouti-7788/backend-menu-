@@ -88,4 +88,9 @@ class Restaurant extends Model
     {
         return $this->hasMany(RestaurantTable::class);
     }
+
+    public function subscriptions()
+    {
+        return $this->hasMany(RestaurantSubscription::class);
+    }
 }
