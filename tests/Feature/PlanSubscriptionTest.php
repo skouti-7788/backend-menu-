@@ -208,4 +208,58 @@ class PlanSubscriptionTest extends TestCase
         ]);
     }
 
+    public function test_owner_can_switch_back_to_starter_and_cancel_previous_active_plan(): void
+    {
+        [$owner, $restaurant] = $this->createOwnerWithRestaurant();
+
+        $restaurant->subscriptions()->create([
+            'plan' => 'pro',
+            'billing_interval' => 'monthly',
+            'status' => 'active',
+            'amount' => 99,
+            'currency' => 'MAD',
+            'starts_at' => now()->subMonth(),
+        ]);
+
+        $this->actingAs($owner, 'sanctum')
+            ->postJson('/api/subscription', [
+                'plan' => 'starter',
+                'billing_interval' => 'monthly',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('subscription.status', 'active');
+
+        $this->assertDatabaseHas('restaurant_subscriptions', [
+            'restaurant_id' => $restaurant->id,
+            'plan' => 'pro',
+            'status' => 'cancelled',
+        ]);
+
+        $this->assertDatabaseHas('restaurant_subscriptions', [
+            'restaurant_id' => $restaurant->id,
+            'plan' => 'starter',
+            'status' => 'active',
+        ]);
+    }
+
+    public function test_owner_cannot_request_unknown_plan_or_billing_interval(): void
+    {
+        [$owner] = $this->createOwnerWithRestaurant();
+
+        $this->actingAs($owner, 'sanctum')
+            ->postJson('/api/subscription', [
+                'plan' => 'enterprise',
+                'billing_interval' => 'monthly',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['plan']);
+
+        $this->postJson('/api/subscription', [
+            'plan' => 'pro',
+            'billing_interval' => 'weekly',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['billing_interval']);
+    }
+
 }
