@@ -43,6 +43,12 @@ class MealController extends Controller
             'meals.add'
         );
 
+        app(\\App\\Services\\PlanEnforcer::class)->assertLimit(
+            $restaurant,
+            'meals',
+            $restaurant->meals()->count()
+        );
+
         $data = $request
             ->safe()
             ->except(['image']);
