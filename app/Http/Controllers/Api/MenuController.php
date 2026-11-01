@@ -12,6 +12,7 @@ use App\Models\OrderItem;
 use App\Models\Restaurant;
 use App\Models\RestaurantAppearance;
 use App\Models\RestaurantTable;
+use App\Support\SubscriptionPlans;
 use App\Services\TranslationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -130,7 +131,15 @@ class MenuController extends Controller
     public function storeOrder(OrderRequest $request, string $slug): JsonResponse
     {
         $restaurant = Restaurant::where('slug', $slug)->firstOrFail();
-        $this->requirePlanFeature($restaurant, 'orders');
+        // Public menu orders are guest requests: enforce the plan without requiring dashboard login.
+        if (! SubscriptionPlans::allows($restaurant->plan, 'orders')) {
+            return response()->json([
+                'message' => 'Online orders are not included in the Starter plan. Upgrade to Pro to accept orders.',
+                'code' => 'PLAN_UPGRADE_REQUIRED',
+                'current_plan' => $restaurant->plan ?: 'starter',
+                'required_feature' => 'orders',
+            ], 403);
+        }
 
         $items = collect($request->input('items', []));
 
