@@ -109,6 +109,15 @@ Route::middleware(['auth:sanctum'])->group(function () {
     );
 });
  
+// Public pricing catalogue.
+Route::get('plans', [PlanController::class, 'index']);
+
+// Subscription management is available to authenticated restaurant owners.
+Route::middleware('auth:sanctum')->prefix('subscription')->group(function () {
+    Route::get('/', [PlanController::class, 'current']);
+    Route::post('/', [PlanController::class, 'requestChange'])->middleware('throttle:5,1');
+});
+
 Route::prefix('menu')->group(function () {
     // Public, unauthenticated routes: keep generous limits for real customers
     // but block scripted abuse (fake orders, analytics pollution).
