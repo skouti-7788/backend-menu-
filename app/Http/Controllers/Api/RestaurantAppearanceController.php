@@ -59,6 +59,19 @@ class RestaurantAppearanceController extends Controller
             'appearance.update'
         );
 
+        // Starter keeps basic color/logo customization; image backgrounds,
+        // header artwork and custom fonts are Pro/Business capabilities.
+        $usesAdvancedAppearance =
+            $request->hasFile('header_image')
+            || $request->hasFile('background_image')
+            || $request->filled('font_family')
+            || $request->boolean('remove_header_image')
+            || $request->boolean('remove_background_image');
+
+        if ($usesAdvancedAppearance) {
+            $this->requirePlanFeature($restaurant, 'advanced_appearance');
+        }
+
         $validated = $request->validate([
             'logo' => [
                 'nullable',
