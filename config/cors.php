@@ -10,6 +10,7 @@ return [
          'http://localhost:5173',
          'https://menu-online.vercel.app',
          'https://menuonlinesr02.vercel.app',
+         'https://menuonlinesr26.vercel.app',
 
     ],
 
