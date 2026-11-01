@@ -61,7 +61,7 @@ class OrderController extends Controller
             $restaurant,
             'orders.add'
         );
-        app(\\App\\Services\\PlanEnforcer::class)->assertFeature($restaurant, 'orders');
+        app(\App\Services\PlanEnforcer::class)->assertFeature($restaurant, 'orders');
 
         $items = collect($request->input('items', []));
 
