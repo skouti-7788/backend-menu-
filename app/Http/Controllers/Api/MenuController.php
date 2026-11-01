@@ -146,6 +146,7 @@ class MenuController extends Controller
         $table = $restaurant
             ->tables()
             ->where('qr_token', $request->input('table_token'))
+            ->where('status', '!=', 'inactive')
             ->firstOrFail();
 
         $order = DB::transaction(function () use (
