@@ -85,7 +85,7 @@ class MenuCategoryController extends Controller
 
                 return $lockedRestaurant->categories()->create($data);
             });
-        } catch (\\Throwable $exception) {
+        } catch (\Throwable $exception) {
             if (! empty($data['image'])) {
                 Storage::disk('public')->delete($data['image']);
             }
