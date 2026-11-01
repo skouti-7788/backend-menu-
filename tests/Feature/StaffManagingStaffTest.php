@@ -27,6 +27,16 @@ class StaffManagingStaffTest extends TestCase
             'slug' => 'test-restaurant',
         ]);
  
+        // Staff administration is a Business-plan feature.
+        $restaurant->subscriptions()->create([
+            'plan' => 'business',
+            'billing_interval' => 'monthly',
+            'status' => 'active',
+            'amount' => 199,
+            'currency' => 'MAD',
+            'starts_at' => now(),
+        ]);
+
         return [$owner, $restaurant];
     }
  
