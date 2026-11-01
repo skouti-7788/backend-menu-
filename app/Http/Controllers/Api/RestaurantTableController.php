@@ -19,6 +19,7 @@ class RestaurantTableController extends Controller
             $restaurant,
             'tables.view'
         );
+        app(\\App\\Services\\PlanEnforcer::class)->assertFeature($restaurant, 'tables');
 
         $tables = $restaurant->tables()
             ->orderBy('number')
@@ -137,6 +138,7 @@ class RestaurantTableController extends Controller
             $restaurant,
             'tables.view'
         );
+        app(\\App\\Services\\PlanEnforcer::class)->assertFeature($restaurant, 'tables');
 
         $this->authorizeTable(
             $restaurant,
@@ -158,6 +160,7 @@ class RestaurantTableController extends Controller
             $restaurant,
             'tables.update'
         );
+        app(\\App\\Services\\PlanEnforcer::class)->assertFeature($restaurant, 'tables');
 
         $this->authorizeTable(
             $restaurant,
@@ -211,6 +214,7 @@ class RestaurantTableController extends Controller
             $restaurant,
             'tables.delete'
         );
+        app(\\App\\Services\\PlanEnforcer::class)->assertFeature($restaurant, 'tables');
 
         $this->authorizeTable(
             $restaurant,
@@ -241,6 +245,7 @@ class RestaurantTableController extends Controller
             $restaurant,
             'tables.delete'
         );
+        app(\\App\\Services\\PlanEnforcer::class)->assertFeature($restaurant, 'tables');
 
         $count = $restaurant
             ->tables()
