@@ -18,12 +18,19 @@ class RestaurantAppearanceTest extends TestCase
             'email' => 'owner1@example.com',
             'password' => bcrypt('secret123'),
             'role' => 'restaurant_manager',
-        ]);
-
-        $restaurant = Restaurant::create([
+        ]);$restaurant = Restaurant::create([
             'user_id' => $owner->id,
             'name' => 'Alpha Bistro',
             'slug' => 'alpha-bistro',
+        ]);
+
+        $restaurant->subscriptions()->create([
+            'plan' => 'business',
+            'billing_interval' => 'monthly',
+            'status' => 'active',
+            'amount' => 199,
+            'currency' => 'MAD',
+            'starts_at' => now(),
         ]);
 
         $response = $this->actingAs($owner, 'sanctum')
