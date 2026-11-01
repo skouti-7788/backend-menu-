@@ -14,7 +14,7 @@ class Restaurant extends Model
 
     protected $fillable = [
         'user_id', 'name', 'slug', 'logo', 'cover_image', 'description',
-        'address', 'phone', 'email', 'plan', 'opening_hours', 'social_links',
+        'address', 'phone', 'email', 'opening_hours', 'social_links',
     ];
 
     protected $casts = [
