@@ -116,8 +116,10 @@ class MenuController extends Controller
                     ->orderBy('number')
                     ->get()
                     ->map(fn (RestaurantTable $table) => [
+                        'id' => $table->id,
+                        'name' => $table->name,
                         'number' => $table->number,
-                        'qr_token' => $table->qr_token,
+                        'status' => $table->status,
                     ])
                 : [],
         ]);
