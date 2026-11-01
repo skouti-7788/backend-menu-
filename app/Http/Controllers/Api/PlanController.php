@@ -31,6 +31,10 @@ class PlanController extends Controller
 
         $subscription = $restaurant->subscriptions()
             ->where('status', 'active')
+            ->where(function ($query) {
+                $query->whereNull('ends_at')
+                    ->orWhere('ends_at', '>', now());
+            })
             ->latest()
             ->first();
 
@@ -79,7 +83,7 @@ class PlanController extends Controller
     {
         $user = $request->user();
 
-        if (! $user || ! ($user->isOwner() || $user->isRestaurantManager())) {
+        if (! $user || ! $user->isOwner()) {
             abort(403, 'Only the restaurant owner can manage the subscription.');
         }
 
