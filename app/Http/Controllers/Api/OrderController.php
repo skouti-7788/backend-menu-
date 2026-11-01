@@ -28,6 +28,7 @@ class OrderController extends Controller
             $restaurant,
             'orders.view'
         );
+        app(\App\Services\PlanEnforcer::class)->assertFeature($restaurant, 'orders');
 
         $orders = $restaurant
             ->orders()
@@ -169,6 +170,7 @@ class OrderController extends Controller
             $order->restaurant,
             'orders.view'
         );
+        app(\App\Services\PlanEnforcer::class)->assertFeature($order->restaurant, 'orders');
 
         return new OrderResource(
             $order->load([
@@ -192,6 +194,7 @@ class OrderController extends Controller
             $order->restaurant,
             'orders.update'
         );
+        app(\App\Services\PlanEnforcer::class)->assertFeature($order->restaurant, 'orders');
 
         $validated =
             $request->validate([
@@ -260,6 +263,7 @@ class OrderController extends Controller
             $order->restaurant,
             'orders.delete'
         );
+        app(\App\Services\PlanEnforcer::class)->assertFeature($order->restaurant, 'orders');
 
         /**
          * Keep table reference BEFORE
@@ -322,6 +326,7 @@ class OrderController extends Controller
             $order->restaurant,
             'orders.update'
         );
+        app(\App\Services\PlanEnforcer::class)->assertFeature($order->restaurant, 'orders');
 
         $validated =
             $request->validate([
