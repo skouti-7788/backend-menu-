@@ -254,33 +254,36 @@ class MenuCategoryController extends Controller
             'categories.delete'
         );
 
-        $menuCategory =
-            MenuCategory::where(
-                'id',
-                $category
-            )
-            ->where(
-                'restaurant_id',
-                $restaurantModel->id
-            )
-            ->firstOrFail();
+        // Serialize against meal creation, which also locks the restaurant row.
+        $image = DB::transaction(function () use ($restaurantModel, $category) {
+            Restaurant::query()
+                ->lockForUpdate()
+                ->findOrFail($restaurantModel->id);
 
-        // Keep categories with linked meals to avoid orphaned menu and order data.
-        $mealCount = $menuCategory->meals()->count();
+            $menuCategory = MenuCategory::query()
+                ->where('id', $category)
+                ->where('restaurant_id', $restaurantModel->id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        if ($mealCount > 0) {
-            return response()->json([
-                'message' => 'This category cannot be deleted while it contains meals. Move or remove its meals first.',
-                'code' => 'CATEGORY_HAS_MEALS',
-                'meals_count' => $mealCount,
-            ], 409);
-        }
+            // Keep categories with linked meals to avoid orphaned menu and order data.
+            $mealCount = $menuCategory->meals()->count();
 
-        $image = $menuCategory->image;
+            if ($mealCount > 0) {
+                abort(response()->json([
+                    'message' => 'This category cannot be deleted while it contains meals. Move or remove its meals first.',
+                    'code' => 'CATEGORY_HAS_MEALS',
+                    'meals_count' => $mealCount,
+                ], 409));
+            }
 
-        // Delete the database record first; preserve the image if deletion fails.
-        $menuCategory->delete();
+            $image = $menuCategory->image;
+            $menuCategory->delete();
 
+            return $image;
+        });
+
+        // Delete the stored image only after the database transaction commits.
         $this->deleteFile($image);
 
         return response()->json([
