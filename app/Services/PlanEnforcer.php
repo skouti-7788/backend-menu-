@@ -24,11 +24,18 @@ class PlanEnforcer
         return $plan ?? config('plans.starter');
     }
 
+    public function hasFeature(Restaurant $restaurant, string $feature): bool
+    {
+        return (bool) data_get(
+            $this->planFor($restaurant),
+            'features.'.$feature,
+            false
+        );
+    }
+
     public function assertFeature(Restaurant $restaurant, string $feature): void
     {
-        $plan = $this->planFor($restaurant);
-
-        if (! (bool) data_get($plan, 'features.'.$feature, false)) {
+        if (! $this->hasFeature($restaurant, $feature)) {
             throw new HttpResponseException(response()->json([
                 'message' => 'This feature is not available in your current plan.',
                 'code' => 'PLAN_FEATURE_LOCKED',
