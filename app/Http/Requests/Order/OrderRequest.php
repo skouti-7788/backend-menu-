@@ -173,6 +173,7 @@ class OrderRequest extends FormRequest
                             'qr_token',
                             $value
                         )
+                        ->where('status', '!=', 'inactive')
                         ->exists()
                     ) {
                         $fail(
