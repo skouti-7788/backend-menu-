@@ -124,6 +124,7 @@ class MenuController extends Controller
     public function storeOrder(OrderRequest $request, string $slug): JsonResponse
     {
         $restaurant = Restaurant::where('slug', $slug)->firstOrFail();
+        app(\\App\\Services\\PlanEnforcer::class)->assertFeature($restaurant, 'orders');
 
         $items = collect($request->input('items', []));
 
