@@ -24,7 +24,7 @@ class StaffController extends Controller
         $restaurant = $this->resolveRestaurantForUser($request);
  
         $this->requirePermission($restaurant, 'staff.view');
-        app(\\App\\Services\\PlanEnforcer::class)->assertFeature($restaurant, 'staff');
+        app(\App\Services\PlanEnforcer::class)->assertFeature($restaurant, 'staff');
  
         $staff = User::query()
             ->where('restaurant_id', $restaurant->id)
@@ -193,7 +193,7 @@ class StaffController extends Controller
         $restaurant = $this->resolveRestaurantForUser($request);
  
         $this->requirePermission($restaurant, 'staff.delete');
-        app(\\App\\Services\\PlanEnforcer::class)->assertFeature($restaurant, 'staff');
+        app(\App\Services\PlanEnforcer::class)->assertFeature($restaurant, 'staff');
  
         $this->ensureStaffBelongsToRestaurant(
             $staff,
@@ -231,7 +231,7 @@ class StaffController extends Controller
         $restaurant = $this->resolveRestaurantForUser($request);
  
         $this->requirePermission($restaurant, 'staff.view');
-        app(\\App\\Services\\PlanEnforcer::class)->assertFeature($restaurant, 'staff');
+        app(\App\Services\PlanEnforcer::class)->assertFeature($restaurant, 'staff');
  
         $this->ensureStaffBelongsToRestaurant(
             $staff,
@@ -259,7 +259,7 @@ class StaffController extends Controller
         $restaurant = $this->resolveRestaurantForUser($request);
  
         $this->requirePermission($restaurant, 'staff.update');
-        app(\\App\\Services\\PlanEnforcer::class)->assertFeature($restaurant, 'staff');
+        app(\App\Services\PlanEnforcer::class)->assertFeature($restaurant, 'staff');
  
         $this->ensureStaffBelongsToRestaurant(
             $staff,
