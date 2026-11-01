@@ -237,10 +237,31 @@ abstract class Controller
         }
 
         /*
-        |--------------------------------------------------------------------------
-        | ADMIN
-        |--------------------------------------------------------------------------
+        | AUTHORIZE THE USER BEFORE REVEALING PLAN AVAILABILITY
         */
+
+        $isAuthorized = false;
+
+        if ($user->isAdmin()) {
+            $isAuthorized = true;
+        } elseif (
+            $restaurant->user_id === $user->id
+            && ($user->isOwner() || $user->isRestaurantManager())
+        ) {
+            $isAuthorized = true;
+        } else {
+            $belongsToRestaurant =
+                $user->restaurant_id
+                && (int) $user->restaurant_id === (int) $restaurant->id;
+
+            if ($belongsToRestaurant && $user->isStaff()) {
+                $isAuthorized = $user->hasPermission($permission);
+            }
+        }
+
+        if (! $isAuthorized) {
+            abort(403, 'You are not authorized to manage this restaurant.');
+        }
 
         $featureByPermission = [
             'orders.view' => 'orders',
@@ -263,84 +284,5 @@ abstract class Controller
                 $featureByPermission[$permission]
             );
         }
-
-        if ($user->isAdmin()) {
-            return;
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | OWNER
-        |--------------------------------------------------------------------------
-        |
-        | Owner of this specific restaurant has full access.
-        |
-        */
-
-        if (
-            $restaurant->user_id === $user->id
-            && $user->isOwner()
-        ) {
-            return;
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | RESTAURANT MANAGER (legacy owner-equivalent role)
-        |--------------------------------------------------------------------------
-        |
-        | Treated the same as owner for the restaurant they own,
-        | consistent with MealController/RestaurantController.
-        | Unlike staff, no explicit permission entry is required.
-        |
-        */
-
-        if (
-            $restaurant->user_id === $user->id
-            && $user->isRestaurantManager()
-        ) {
-            return;
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | STAFF
-        |--------------------------------------------------------------------------
-        |
-        | Must belong to this restaurant and hold the explicit permission.
-        |
-        */
-
-        $belongsToRestaurant =
-            $user->restaurant_id
-            && (int) $user->restaurant_id === (int) $restaurant->id;
-
-        if (
-            $belongsToRestaurant
-            && $user->isStaff()
-        ) {
-            /*
-            | Explicit permission check.
-            */
-            if ($user->hasPermission($permission)) {
-                return;
-            }
-
-            abort(
-                403,
-                'You do not have permission to perform this action.'
-            );
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | User doesn't belong to this restaurant.
-        |--------------------------------------------------------------------------
-        */
-
-        abort(
-            403,
-            'You are not authorized to manage this restaurant.'
-        );
     }
 }
