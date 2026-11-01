@@ -170,15 +170,17 @@ class MealController extends Controller
 
             'meals' => $meals,
 
-            'tables' => $restaurant->tables()
-                ->orderBy('number')
-                ->get()
-                ->map(fn (RestaurantTable $table) => [
-                    'id' => $table->id,
-                    'name' => $table->name,
-                    'number' => $table->number,
-                    'status' => $table->status,
-                ]),
+            'tables' => app(\\App\\Services\\PlanEnforcer::class)->hasFeature($restaurant, 'tables')
+                ? $restaurant->tables()
+                    ->orderBy('number')
+                    ->get()
+                    ->map(fn (RestaurantTable $table) => [
+                        'id' => $table->id,
+                        'name' => $table->name,
+                        'number' => $table->number,
+                        'status' => $table->status,
+                    ])
+                : [],
         ]);
     }     
 
