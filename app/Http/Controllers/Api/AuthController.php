@@ -10,6 +10,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 // use App\Models\Restaurant;
 use Illuminate\Support\Facades\Hash;
+use App\Support\SubscriptionPlans;
 
 class AuthController extends Controller
 {
@@ -44,6 +45,7 @@ class AuthController extends Controller
                 'email' => $user->email,
                 'role' => $user->role,
                 'restaurant_id' => $user->restaurant_id,
+                'subscription' => SubscriptionPlans::for($restaurant->plan),
             ],
             'token' => $token,
         ], 201);
@@ -67,6 +69,7 @@ class AuthController extends Controller
                 'role' => $user->role,
                 'restaurant_id' => $user->restaurant_id ?? $user->restaurants()->first()?->id,
                 'permissions' => $user->role === 'owner' ? [] : $user->permissions()->pluck('permission')->toArray(),
+                'subscription' => SubscriptionPlans::for($user->restaurant_id ? \App\Models\Restaurant::find($user->restaurant_id)?->plan : $user->restaurants()->first()?->plan),
             ],
             'token' => $token,
         ]);
