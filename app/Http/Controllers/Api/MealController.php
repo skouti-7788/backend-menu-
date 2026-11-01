@@ -301,7 +301,14 @@ class MealController extends Controller
             $data['image'] = $newImageUrl;
             $data['image_public_id'] = $newPublicId;
 
-            $meal->update($data);
+            try {
+                $this->updateMealWithinPlanLimit($restaurant, $meal, $data);
+            } catch (\Throwable $exception) {
+                // The new image is not referenced by the database if the update fails.
+                $this->deleteMealImage($newImageUrl, $newPublicId);
+
+                throw $exception;
+            }
 
             /*
             |--------------------------------------------------------------------------
@@ -314,7 +321,7 @@ class MealController extends Controller
                 $oldPublicId
             );
         } else {
-            $meal->update($data);
+            $this->updateMealWithinPlanLimit($restaurant, $meal, $data);
         }
 
         $meal->refresh();
@@ -455,6 +462,47 @@ class MealController extends Controller
     | Tenant isolation
     |--------------------------------------------------------------------------
     */
+
+    /**
+     * Update a meal while serializing Starter-plan limit checks per restaurant.
+     */
+    protected function updateMealWithinPlanLimit(
+        Restaurant $restaurant,
+        Meal $meal,
+        array $data
+    ): void {
+        DB::transaction(function () use ($restaurant, $meal, $data) {
+            $lockedRestaurant = Restaurant::query()
+                ->lockForUpdate()
+                ->findOrFail($restaurant->id);
+
+            $lockedMeal = Meal::query()
+                ->where('restaurant_id', $lockedRestaurant->id)
+                ->lockForUpdate()
+                ->findOrFail($meal->id);
+
+            $isReactivating = ($data['status'] ?? null) === MealStatus::ACTIVE->value
+                && $lockedMeal->status !== MealStatus::ACTIVE;
+
+            if (
+                ($lockedRestaurant->plan ?: 'starter') === 'starter'
+                && $isReactivating
+                && $lockedRestaurant->meals()
+                    ->where('status', MealStatus::ACTIVE->value)
+                    ->count() >= 30
+            ) {
+                abort(response()->json([
+                    'message' => 'Starter plan allows up to 30 active meals. Upgrade to Pro for unlimited meals.',
+                    'code' => 'PLAN_LIMIT_REACHED',
+                    'limit' => 30,
+                    'resource' => 'meals',
+                    'current_plan' => 'starter',
+                ], 403));
+            }
+
+            $lockedMeal->update($data);
+        });
+    }
 
     protected function ensureMealBelongsToRestaurant(
         Meal $meal,
