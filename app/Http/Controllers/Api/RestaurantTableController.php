@@ -39,7 +39,7 @@ class RestaurantTableController extends Controller
             'tables.add'
         );
         app(\\App\\Services\\PlanEnforcer::class)->assertFeature($restaurant, 'tables');
-        app(\\App\\Services\\PlanEnforcer::class)->assertFeature($restaurant, 'tables');
+
 
         $validated = $request->validate([
             'number' => [
@@ -80,6 +80,7 @@ class RestaurantTableController extends Controller
             $restaurant,
             'tables.add'
         );
+        app(\\App\\Services\\PlanEnforcer::class)->assertFeature($restaurant, 'tables');
 
         $validated = $request->validate([
             'count' => [
