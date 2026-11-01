@@ -45,7 +45,7 @@ class MenuCategoryController extends Controller
             'categories.add'
         );
 
-        app(\\App\\Services\\PlanEnforcer::class)->assertLimit(
+        app(\App\Services\PlanEnforcer::class)->assertLimit(
             $restaurant,
             'categories',
             $restaurant->categories()->count()
