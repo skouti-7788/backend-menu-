@@ -30,6 +30,7 @@ class PlanController extends Controller
         $restaurant = $this->ownedRestaurant($request);
 
         $subscription = $restaurant->subscriptions()
+            ->where('status', 'active')
             ->latest()
             ->first();
 
