@@ -83,7 +83,8 @@ class RestaurantController extends Controller
             ->safe()
             ->except([
                 'logo',
-                'cover_image'
+                'cover_image',
+                'plan',
             ]);
 
         $data['user_id'] =
