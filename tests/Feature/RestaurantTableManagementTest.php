@@ -31,6 +31,16 @@ class RestaurantTableManagementTest extends TestCase
         $owner->restaurant_id = $restaurant->id;
         $owner->save();
 
+        // These legacy table-management tests exercise Business entitlements.
+        $restaurant->subscriptions()->create([
+            'plan' => 'business',
+            'billing_interval' => 'monthly',
+            'status' => 'active',
+            'amount' => 199,
+            'currency' => 'MAD',
+            'starts_at' => now(),
+        ]);
+
         return [$owner, $restaurant];
     }
 
