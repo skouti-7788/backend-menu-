@@ -118,11 +118,11 @@ class MealController extends Controller
 
                 return Meal::create($data);
             });
-        } catch (\\Throwable $exception) {
+        } catch (\Throwable $exception) {
             if ($publicId) {
                 try {
                     Cloudinary::destroy($publicId);
-                } catch (\\Throwable $cleanupException) {
+                } catch (\Throwable $cleanupException) {
                     Log::error('Unable to clean up rejected meal image.', [
                         'public_id' => $publicId,
                         'error' => $cleanupException->getMessage(),
