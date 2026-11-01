@@ -54,7 +54,7 @@ class StaffController extends Controller
         $restaurant = $this->resolveRestaurantForUser($request);
  
         $this->requirePermission($restaurant, 'staff.add');
-        app(\\App\\Services\\PlanEnforcer::class)->assertFeature($restaurant, 'staff');
+        app(\App\Services\PlanEnforcer::class)->assertFeature($restaurant, 'staff');
  
         $allowedPermissions = $this->allowedPermissionsList();
  
