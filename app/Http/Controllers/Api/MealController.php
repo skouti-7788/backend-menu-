@@ -170,7 +170,7 @@ class MealController extends Controller
 
             'meals' => $meals,
 
-            'tables' => app(\\App\\Services\\PlanEnforcer::class)->hasFeature($restaurant, 'tables')
+            'tables' => app(\App\Services\PlanEnforcer::class)->hasFeature($restaurant, 'tables')
                 ? $restaurant->tables()
                     ->orderBy('number')
                     ->get()
