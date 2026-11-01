@@ -110,14 +110,16 @@ class MenuController extends Controller
             //     'status' => $table->status,
 
             // ]),
-            'tables' => $restaurant->tables()
-            ->where('status', '!=', 'inactive')
-            ->orderBy('number')
-            ->get()
-            ->map(fn (RestaurantTable $table) => [
-                'number' => $table->number,
-                'qr_token' => $table->qr_token,
-            ]),
+            'tables' => app(\App\Services\PlanEnforcer::class)->hasFeature($restaurant, 'tables')
+                ? $restaurant->tables()
+                    ->where('status', '!=', 'inactive')
+                    ->orderBy('number')
+                    ->get()
+                    ->map(fn (RestaurantTable $table) => [
+                        'number' => $table->number,
+                        'qr_token' => $table->qr_token,
+                    ])
+                : [],
         ]);
     }
 
