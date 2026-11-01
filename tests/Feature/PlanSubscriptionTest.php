@@ -62,7 +62,7 @@ class PlanSubscriptionTest extends TestCase
         ]);
     }
 
-    public function test_paid_plan_stays_pending_until_payment_is_confirmed(): void
+    public function test_paid_plan_is_unavailable_until_a_free_payment_provider_exists(): void
     {
         [$owner, $restaurant] = $this->createOwnerWithRestaurant();
 
@@ -72,17 +72,14 @@ class PlanSubscriptionTest extends TestCase
                 'billing_interval' => 'yearly',
             ]);
 
-        $response->assertStatus(202)
+        $response->assertStatus(409)
             ->assertJsonPath('payment_required', true)
-            ->assertJsonPath('subscription.plan', 'pro')
-            ->assertJsonPath('subscription.status', 'pending_payment')
-            ->assertJsonPath('subscription.amount', 990);
+            ->assertJsonPath('payment_available', false)
+            ->assertJsonPath('subscription', null);
 
-        $this->assertDatabaseHas('restaurant_subscriptions', [
+        $this->assertDatabaseMissing('restaurant_subscriptions', [
             'restaurant_id' => $restaurant->id,
             'plan' => 'pro',
-            'status' => 'pending_payment',
-            'amount' => 990,
         ]);
     }
 
@@ -193,7 +190,8 @@ class PlanSubscriptionTest extends TestCase
                 'plan' => 'pro',
                 'billing_interval' => 'monthly',
             ])
-            ->assertStatus(202);
+            ->assertStatus(409)
+            ->assertJsonPath('payment_available', false);
 
         $this->assertDatabaseHas('restaurant_subscriptions', [
             'restaurant_id' => $restaurant->id,
@@ -201,10 +199,9 @@ class PlanSubscriptionTest extends TestCase
             'status' => 'active',
         ]);
 
-        $this->assertDatabaseHas('restaurant_subscriptions', [
+        $this->assertDatabaseMissing('restaurant_subscriptions', [
             'restaurant_id' => $restaurant->id,
             'plan' => 'pro',
-            'status' => 'pending_payment',
         ]);
     }
 
