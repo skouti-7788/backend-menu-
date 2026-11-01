@@ -153,7 +153,8 @@ class RestaurantController extends Controller
             ->safe()
             ->except([
                 'logo',
-                'cover_image'
+                'cover_image',
+                'plan',
             ]);
 
         if ($request->hasFile('logo')) {
