@@ -115,4 +115,41 @@ class PlanSubscriptionTest extends TestCase
             ->assertJsonPath('subscription.plan', 'business')
             ->assertJsonPath('plan.name', 'Business');
     }
+    public function test_expired_subscription_falls_back_to_starter_features(): void
+    {
+        [$owner, $restaurant] = $this->createOwnerWithRestaurant();
+
+        $restaurant->subscriptions()->create([
+            'plan' => 'business',
+            'billing_interval' => 'monthly',
+            'status' => 'active',
+            'amount' => 199,
+            'currency' => 'MAD',
+            'starts_at' => now()->subMonth(),
+            'ends_at' => now()->subDay(),
+        ]);
+
+        $plan = app(\App\Services\PlanEnforcer::class)->planFor($restaurant);
+
+        $this->assertSame('Starter', $plan['name']);
+        $this->assertFalse($plan['features']['staff']);
+    }
+
+    public function test_restaurant_manager_cannot_change_subscription(): void
+    {
+        $manager = User::create([
+            'name' => 'Restaurant Manager',
+            'email' => 'plan-manager@example.com',
+            'password' => 'password123',
+            'role' => 'restaurant_manager',
+        ]);
+
+        $this->actingAs($manager, 'sanctum')
+            ->postJson('/api/subscription', [
+                'plan' => 'starter',
+                'billing_interval' => 'monthly',
+            ])
+            ->assertForbidden();
+    }
+
 }
