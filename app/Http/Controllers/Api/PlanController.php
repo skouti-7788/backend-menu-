@@ -8,6 +8,7 @@ use App\Models\RestaurantSubscription;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class PlanController extends Controller
@@ -61,22 +62,62 @@ class PlanController extends Controller
         // until a payment provider confirms the transaction.
         $isFree = $amount === 0;
 
-        $subscription = $restaurant->subscriptions()->create([
-            'plan' => $validated['plan'],
-            'billing_interval' => $validated['billing_interval'],
-            'status' => $isFree ? 'active' : 'pending_payment',
-            'amount' => $amount,
-            'currency' => 'MAD',
-            'starts_at' => $isFree ? Carbon::now() : null,
-        ]);
+        [$subscription, $alreadyActive] = DB::transaction(function () use (
+            $restaurant,
+            $validated,
+            $amount,
+            $isFree
+        ) {
+            $existingActive = $restaurant->subscriptions()
+                ->where('status', 'active')
+                ->where(function ($query) {
+                    $query->whereNull('ends_at')
+                        ->orWhere('ends_at', '>', now());
+                })
+                ->latest()
+                ->first();
+
+            if (
+                $existingActive
+                && $existingActive->plan === $validated['plan']
+                && $existingActive->billing_interval === $validated['billing_interval']
+            ) {
+                return [$existingActive, true];
+            }
+
+            // A newer plan request replaces stale pending payment requests.
+            $restaurant->subscriptions()
+                ->where('status', 'pending_payment')
+                ->update(['status' => 'cancelled']);
+
+            if ($isFree) {
+                // Only switch the active plan immediately for a zero-cost plan.
+                $restaurant->subscriptions()
+                    ->where('status', 'active')
+                    ->update(['status' => 'cancelled']);
+            }
+
+            $created = $restaurant->subscriptions()->create([
+                'plan' => $validated['plan'],
+                'billing_interval' => $validated['billing_interval'],
+                'status' => $isFree ? 'active' : 'pending_payment',
+                'amount' => $amount,
+                'currency' => 'MAD',
+                'starts_at' => $isFree ? Carbon::now() : null,
+            ]);
+
+            return [$created, false];
+        });
 
         return response()->json([
-            'message' => $isFree
-                ? 'Starter plan activated.'
-                : 'Plan request created. Payment is required before activation.',
+            'message' => $alreadyActive
+                ? 'This plan is already active.'
+                : ($isFree
+                    ? 'Starter plan activated.'
+                    : 'Plan request created. Payment is required before activation.'),
             'subscription' => $subscription,
-            'payment_required' => ! $isFree,
-        ], $isFree ? 201 : 202);
+            'payment_required' => ! $isFree && ! $alreadyActive,
+        ], $alreadyActive ? 200 : ($isFree ? 201 : 202));
     }
 
     private function ownedRestaurant(Request $request): Restaurant
