@@ -52,6 +52,7 @@ class MealController extends Controller
 
         // Fast preflight avoids uploading an image when the Starter limit is already reached.
         if (($restaurant->plan ?: 'starter') === 'starter'
+            && ($data['status'] ?? null) === MealStatus::ACTIVE->value
             && $restaurant->meals()->where('status', MealStatus::ACTIVE->value)->count() >= 30) {
             abort(response()->json([
                 'message' => 'Starter plan allows up to 30 meals. Upgrade to Pro for unlimited meals.',
@@ -106,6 +107,7 @@ class MealController extends Controller
                     ->findOrFail($restaurant->id);
 
                 if (($lockedRestaurant->plan ?: 'starter') === 'starter'
+                    && ($data['status'] ?? null) === MealStatus::ACTIVE->value
                     && $lockedRestaurant->meals()->where('status', MealStatus::ACTIVE->value)->count() >= 30) {
                     abort(response()->json([
                         'message' => 'Starter plan allows up to 30 meals. Upgrade to Pro for unlimited meals.',
