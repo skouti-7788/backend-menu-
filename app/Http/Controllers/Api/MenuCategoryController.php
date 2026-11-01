@@ -265,6 +265,17 @@ class MenuCategoryController extends Controller
             )
             ->firstOrFail();
 
+        // Keep categories with linked meals to avoid orphaned menu and order data.
+        $mealCount = $menuCategory->meals()->count();
+
+        if ($mealCount > 0) {
+            return response()->json([
+                'message' => 'This category cannot be deleted while it contains meals. Move or remove its meals first.',
+                'code' => 'CATEGORY_HAS_MEALS',
+                'meals_count' => $mealCount,
+            ], 409);
+        }
+
         $image = $menuCategory->image;
 
         // Delete the database record first; preserve the image if deletion fails.
