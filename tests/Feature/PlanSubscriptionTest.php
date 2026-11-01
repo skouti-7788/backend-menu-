@@ -152,4 +152,60 @@ class PlanSubscriptionTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_requesting_the_same_active_plan_is_idempotent(): void
+    {
+        [$owner, $restaurant] = $this->createOwnerWithRestaurant();
+
+        $payload = [
+            'plan' => 'starter',
+            'billing_interval' => 'monthly',
+        ];
+
+        $this->actingAs($owner, 'sanctum')
+            ->postJson('/api/subscription', $payload)
+            ->assertCreated();
+
+        $this->postJson('/api/subscription', $payload)
+            ->assertOk()
+            ->assertJsonPath('payment_required', false);
+
+        $this->assertSame(
+            1,
+            $restaurant->subscriptions()->where('plan', 'starter')->count()
+        );
+    }
+
+    public function test_paid_plan_request_does_not_cancel_current_active_plan(): void
+    {
+        [$owner, $restaurant] = $this->createOwnerWithRestaurant();
+
+        $restaurant->subscriptions()->create([
+            'plan' => 'starter',
+            'billing_interval' => 'monthly',
+            'status' => 'active',
+            'amount' => 0,
+            'currency' => 'MAD',
+            'starts_at' => now(),
+        ]);
+
+        $this->actingAs($owner, 'sanctum')
+            ->postJson('/api/subscription', [
+                'plan' => 'pro',
+                'billing_interval' => 'monthly',
+            ])
+            ->assertStatus(202);
+
+        $this->assertDatabaseHas('restaurant_subscriptions', [
+            'restaurant_id' => $restaurant->id,
+            'plan' => 'starter',
+            'status' => 'active',
+        ]);
+
+        $this->assertDatabaseHas('restaurant_subscriptions', [
+            'restaurant_id' => $restaurant->id,
+            'plan' => 'pro',
+            'status' => 'pending_payment',
+        ]);
+    }
+
 }
