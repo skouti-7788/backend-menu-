@@ -34,6 +34,16 @@ class AnalyticsTest extends TestCase
         $owner->restaurant_id = $restaurant->id;
         $owner->save();
 
+        // Existing management tests exercise the paid feature set.
+        $restaurant->subscriptions()->create([
+            'plan' => 'business',
+            'billing_interval' => 'monthly',
+            'status' => 'active',
+            'amount' => 199,
+            'currency' => 'MAD',
+            'starts_at' => now(),
+        ]);
+
         return [$owner, $restaurant];
     }
 
