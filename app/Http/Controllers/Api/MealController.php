@@ -43,6 +43,16 @@ class MealController extends Controller
             'meals.add'
         );
 
+        if (($restaurant->plan ?: 'starter') === 'starter' && $restaurant->meals()->count() >= 30) {
+            abort(response()->json([
+                'message' => 'Starter plan allows up to 30 meals. Upgrade to Pro for unlimited meals.',
+                'code' => 'PLAN_LIMIT_REACHED',
+                'limit' => 30,
+                'resource' => 'meals',
+                'current_plan' => 'starter',
+            ], 403));
+        }
+
         $data = $request
             ->safe()
             ->except(['image']);
