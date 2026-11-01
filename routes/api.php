@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\RestaurantAppearanceController;
 use App\Http\Controllers\Api\StaffController;
 use App\Http\Controllers\Api\PasswordController;
 use App\Http\Controllers\Api\ForgotPasswordController;
+use App\Support\SubscriptionPlans;
 
 Route::prefix('auth')->group(function () {
     // throttle:6,1 => max 6 requests / minute per IP.
@@ -57,6 +58,7 @@ Route::middleware('auth:sanctum')->get('user', function (Request $request) {
         'role' => $user->role,
         'restaurant_id' => $user->restaurant_id,
         'permissions' => $user->role === 'owner' ? [] : $user->permissions()->pluck('permission')->toArray(),
+        'subscription' => SubscriptionPlans::for($user->restaurant_id ? \App\Models\Restaurant::find($user->restaurant_id)?->plan : $user->restaurants()->first()?->plan),
     ];
  
     return response()->json(['user' => $payload]);
