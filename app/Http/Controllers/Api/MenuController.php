@@ -23,6 +23,7 @@ class MenuController extends Controller
     {
         $validated = $request->validate([
             'lang' => ['nullable', 'string', 'in:en,fr,ar'],
+            'table' => ['nullable', 'string', 'max:64'],
         ]);
 
         $language = $validated['lang'] ?? 'en';
@@ -110,14 +111,19 @@ class MenuController extends Controller
             //     'status' => $table->status,
 
             // ]),
-            'tables' => $restaurant->tables()
-            ->where('status', '!=', 'inactive')
-            ->orderBy('number')
-            ->get()
-            ->map(fn (RestaurantTable $table) => [
-                'number' => $table->number,
-                'qr_token' => $table->qr_token,
-            ]),
+            // Only return the table matching the QR token in this request.
+            // Never expose every table token through the public menu endpoint.
+            'tables' => ! empty($validated['table'])
+                ? $restaurant->tables()
+                    ->where('status', '!=', 'inactive')
+                    ->where('qr_token', $validated['table'])
+                    ->orderBy('number')
+                    ->get()
+                    ->map(fn (RestaurantTable $table) => [
+                        'number' => $table->number,
+                        'qr_token' => $table->qr_token,
+                    ])
+                : collect(),
         ]);
     }
 
