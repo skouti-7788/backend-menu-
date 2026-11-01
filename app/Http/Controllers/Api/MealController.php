@@ -243,6 +243,25 @@ class MealController extends Controller
             ->safe()
             ->except(['image']);
 
+        // Reactivating an inactive meal must obey the Starter limit too.
+        // Run this before Cloudinary upload to avoid uploading an image for a rejected update.
+        if (
+            ($restaurant->plan ?: 'starter') === 'starter'
+            && ($data['status'] ?? null) === MealStatus::ACTIVE->value
+            && $meal->status !== MealStatus::ACTIVE
+            && $restaurant->meals()
+                ->where('status', MealStatus::ACTIVE->value)
+                ->count() >= 30
+        ) {
+            abort(response()->json([
+                'message' => 'Starter plan allows up to 30 active meals. Upgrade to Pro for unlimited meals.',
+                'code' => 'PLAN_LIMIT_REACHED',
+                'limit' => 30,
+                'resource' => 'meals',
+                'current_plan' => 'starter',
+            ], 403));
+        }
+
         /*
         |--------------------------------------------------------------------------
         | Upload new image FIRST
