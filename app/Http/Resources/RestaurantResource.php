@@ -19,6 +19,7 @@ class RestaurantResource extends JsonResource
             'address' => $this->address,
             'phone' => $this->phone,
             'email' => $this->email,
+            'plan' => $this->plan ?: 'starter',
             'opening_hours' => $this->opening_hours,
             'social_links' => $this->social_links,
             'logo_url' => $this->logo_url,
