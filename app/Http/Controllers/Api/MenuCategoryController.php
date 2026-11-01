@@ -66,24 +66,32 @@ class MenuCategoryController extends Controller
         }
 
         // Serialize category creation per restaurant to enforce the Starter limit.
-        $category = DB::transaction(function () use ($restaurant, $data) {
-            $lockedRestaurant = Restaurant::query()
-                ->lockForUpdate()
-                ->findOrFail($restaurant->id);
+        try {
+            $category = DB::transaction(function () use ($restaurant, $data) {
+                $lockedRestaurant = Restaurant::query()
+                    ->lockForUpdate()
+                    ->findOrFail($restaurant->id);
 
-            if (($lockedRestaurant->plan ?: 'starter') === 'starter'
-                && $lockedRestaurant->categories()->count() >= 5) {
-                abort(response()->json([
-                    'message' => 'Starter plan allows up to 5 categories. Upgrade to Pro for unlimited categories.',
-                    'code' => 'PLAN_LIMIT_REACHED',
-                    'limit' => 5,
-                    'resource' => 'categories',
-                    'current_plan' => 'starter',
-                ], 403));
+                if (($lockedRestaurant->plan ?: 'starter') === 'starter'
+                    && $lockedRestaurant->categories()->count() >= 5) {
+                    abort(response()->json([
+                        'message' => 'Starter plan allows up to 5 categories. Upgrade to Pro for unlimited categories.',
+                        'code' => 'PLAN_LIMIT_REACHED',
+                        'limit' => 5,
+                        'resource' => 'categories',
+                        'current_plan' => 'starter',
+                    ], 403));
+                }
+
+                return $lockedRestaurant->categories()->create($data);
+            });
+        } catch (\\Throwable $exception) {
+            if (! empty($data['image'])) {
+                Storage::disk('public')->delete($data['image']);
             }
 
-            return $lockedRestaurant->categories()->create($data);
-        });
+            throw $exception;
+        }
 
         return new MenuCategoryResource(
             $category->refresh()
