@@ -10,6 +10,7 @@ use App\Models\Restaurant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use App\Enums\MealStatus;
 use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
@@ -42,16 +43,6 @@ class MealController extends Controller
             $restaurant,
             'meals.add'
         );
-
-        if (($restaurant->plan ?: 'starter') === 'starter' && $restaurant->meals()->count() >= 30) {
-            abort(response()->json([
-                'message' => 'Starter plan allows up to 30 meals. Upgrade to Pro for unlimited meals.',
-                'code' => 'PLAN_LIMIT_REACHED',
-                'limit' => 30,
-                'resource' => 'meals',
-                'current_plan' => 'starter',
-            ], 403));
-        }
 
         $data = $request
             ->safe()
@@ -93,7 +84,25 @@ class MealController extends Controller
             $data['image_public_id'] = $publicId;
         }
 
-        $meal = Meal::create($data);
+        // Lock the restaurant row so concurrent requests cannot exceed the plan limit.
+        $meal = DB::transaction(function () use ($restaurant, $data) {
+            $lockedRestaurant = Restaurant::query()
+                ->lockForUpdate()
+                ->findOrFail($restaurant->id);
+
+            if (($lockedRestaurant->plan ?: 'starter') === 'starter'
+                && $lockedRestaurant->meals()->count() >= 30) {
+                abort(response()->json([
+                    'message' => 'Starter plan allows up to 30 meals. Upgrade to Pro for unlimited meals.',
+                    'code' => 'PLAN_LIMIT_REACHED',
+                    'limit' => 30,
+                    'resource' => 'meals',
+                    'current_plan' => 'starter',
+                ], 403));
+            }
+
+            return Meal::create($data);
+        });
 
         $meal->load('translations');
 
