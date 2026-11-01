@@ -45,6 +45,16 @@ class MenuCategoryController extends Controller
             'categories.add'
         );
 
+        if (($restaurant->plan ?: 'starter') === 'starter' && $restaurant->categories()->count() >= 5) {
+            abort(response()->json([
+                'message' => 'Starter plan allows up to 5 categories. Upgrade to Pro for unlimited categories.',
+                'code' => 'PLAN_LIMIT_REACHED',
+                'limit' => 5,
+                'resource' => 'categories',
+                'current_plan' => 'starter',
+            ], 403));
+        }
+
         $data = $request
             ->safe()
             ->except(['image']);
