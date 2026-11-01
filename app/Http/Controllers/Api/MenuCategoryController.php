@@ -265,11 +265,12 @@ class MenuCategoryController extends Controller
             )
             ->firstOrFail();
 
-        $this->deleteFile(
-            $menuCategory->image
-        );
+        $image = $menuCategory->image;
 
+        // Delete the database record first; preserve the image if deletion fails.
         $menuCategory->delete();
+
+        $this->deleteFile($image);
 
         return response()->json([
             'message' =>
