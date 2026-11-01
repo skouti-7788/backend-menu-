@@ -64,7 +64,7 @@ class RestaurantAppearanceController extends Controller
         $usesAdvancedAppearance =
             $request->hasFile('header_image')
             || $request->hasFile('background_image')
-            || $request->filled('font_family')
+            || ($request->filled('font_family') && $request->input('font_family') !== 'Inter')
             || $request->boolean('remove_header_image')
             || $request->boolean('remove_background_image');
 
