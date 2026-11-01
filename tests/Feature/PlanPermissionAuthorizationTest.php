@@ -86,6 +86,46 @@ class PlanPermissionAuthorizationTest extends TestCase
         }
     }
 
+    public function test_restaurant_manager_cannot_access_another_restaurant(): void
+    {
+        $manager = new User();
+        $manager->id = 30;
+        $manager->role = 'restaurant_manager';
+        $manager->restaurant_id = 999;
+        auth()->login($manager);
+
+        try {
+            (new ExposedPlanPermissionController())->check(
+                $this->makeStarterRestaurant(10),
+                'tables.view'
+            );
+
+            self::fail('A manager must not access a restaurant they do not belong to.');
+        } catch (\\Symfony\\Component\\HttpKernel\\Exception\\HttpException $exception) {
+            self::assertSame(403, $exception->getStatusCode());
+        }
+    }
+
+    public function test_staff_cannot_access_another_restaurant(): void
+    {
+        $staff = new User();
+        $staff->id = 31;
+        $staff->role = 'staff';
+        $staff->restaurant_id = 999;
+        auth()->login($staff);
+
+        try {
+            (new ExposedPlanPermissionController())->check(
+                $this->makeStarterRestaurant(10),
+                'orders.view'
+            );
+
+            self::fail('Staff must not access a restaurant they do not belong to.');
+        } catch (\\Symfony\\Component\\HttpKernel\\Exception\\HttpException $exception) {
+            self::assertSame(403, $exception->getStatusCode());
+        }
+    }
+
     public function test_admin_can_access_plan_restricted_features(): void
     {
         $admin = new User();
