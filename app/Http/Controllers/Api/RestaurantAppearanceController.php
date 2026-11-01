@@ -59,6 +59,19 @@ class RestaurantAppearanceController extends Controller
             'appearance.update'
         );
 
+        $plan = app(\\App\\Services\\PlanEnforcer::class)->planFor($restaurant);
+        if (data_get($plan, 'features.appearance') !== 'advanced') {
+            $request->validate([
+                'primary_color' => ['prohibited'],
+                'secondary_color' => ['prohibited'],
+                'text_color' => ['prohibited'],
+                'background_color' => ['prohibited'],
+                'font_family' => ['prohibited'],
+                'header_image' => ['prohibited'],
+                'background_image' => ['prohibited'],
+            ]);
+        }
+
         $validated = $request->validate([
             'logo' => [
                 'nullable',
