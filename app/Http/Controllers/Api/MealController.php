@@ -50,6 +50,20 @@ class MealController extends Controller
 
         $data['restaurant_id'] = $restaurant->id;
 
+        // Fast preflight avoids uploading an image when the Starter limit is already reached.
+        if (($restaurant->plan ?: 'starter') === 'starter'
+            && $restaurant->meals()->count() >= 30) {
+            abort(response()->json([
+                'message' => 'Starter plan allows up to 30 meals. Upgrade to Pro for unlimited meals.',
+                'code' => 'PLAN_LIMIT_REACHED',
+                'limit' => 30,
+                'resource' => 'meals',
+                'current_plan' => 'starter',
+            ], 403));
+        }
+
+        $publicId = null;
+
         /*
         |--------------------------------------------------------------------------
         | Upload image to Cloudinary
@@ -85,24 +99,39 @@ class MealController extends Controller
         }
 
         // Lock the restaurant row so concurrent requests cannot exceed the plan limit.
-        $meal = DB::transaction(function () use ($restaurant, $data) {
-            $lockedRestaurant = Restaurant::query()
-                ->lockForUpdate()
-                ->findOrFail($restaurant->id);
+        try {
+            $meal = DB::transaction(function () use ($restaurant, $data) {
+                $lockedRestaurant = Restaurant::query()
+                    ->lockForUpdate()
+                    ->findOrFail($restaurant->id);
 
-            if (($lockedRestaurant->plan ?: 'starter') === 'starter'
-                && $lockedRestaurant->meals()->count() >= 30) {
-                abort(response()->json([
-                    'message' => 'Starter plan allows up to 30 meals. Upgrade to Pro for unlimited meals.',
-                    'code' => 'PLAN_LIMIT_REACHED',
-                    'limit' => 30,
-                    'resource' => 'meals',
-                    'current_plan' => 'starter',
-                ], 403));
+                if (($lockedRestaurant->plan ?: 'starter') === 'starter'
+                    && $lockedRestaurant->meals()->count() >= 30) {
+                    abort(response()->json([
+                        'message' => 'Starter plan allows up to 30 meals. Upgrade to Pro for unlimited meals.',
+                        'code' => 'PLAN_LIMIT_REACHED',
+                        'limit' => 30,
+                        'resource' => 'meals',
+                        'current_plan' => 'starter',
+                    ], 403));
+                }
+
+                return Meal::create($data);
+            });
+        } catch (\\Throwable $exception) {
+            if ($publicId) {
+                try {
+                    Cloudinary::destroy($publicId);
+                } catch (\\Throwable $cleanupException) {
+                    Log::error('Unable to clean up rejected meal image.', [
+                        'public_id' => $publicId,
+                        'error' => $cleanupException->getMessage(),
+                    ]);
+                }
             }
 
-            return Meal::create($data);
-        });
+            throw $exception;
+        }
 
         $meal->load('translations');
 
