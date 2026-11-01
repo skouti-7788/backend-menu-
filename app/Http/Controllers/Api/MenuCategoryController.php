@@ -10,6 +10,7 @@ use App\Models\Restaurant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 
 class MenuCategoryController extends Controller
 {
@@ -45,16 +46,6 @@ class MenuCategoryController extends Controller
             'categories.add'
         );
 
-        if (($restaurant->plan ?: 'starter') === 'starter' && $restaurant->categories()->count() >= 5) {
-            abort(response()->json([
-                'message' => 'Starter plan allows up to 5 categories. Upgrade to Pro for unlimited categories.',
-                'code' => 'PLAN_LIMIT_REACHED',
-                'limit' => 5,
-                'resource' => 'categories',
-                'current_plan' => 'starter',
-            ], 403));
-        }
-
         $data = $request
             ->safe()
             ->except(['image']);
@@ -74,8 +65,25 @@ class MenuCategoryController extends Controller
                 );
         }
 
-        $category =
-            MenuCategory::create($data);
+        // Serialize category creation per restaurant to enforce the Starter limit.
+        $category = DB::transaction(function () use ($restaurant, $data) {
+            $lockedRestaurant = Restaurant::query()
+                ->lockForUpdate()
+                ->findOrFail($restaurant->id);
+
+            if (($lockedRestaurant->plan ?: 'starter') === 'starter'
+                && $lockedRestaurant->categories()->count() >= 5) {
+                abort(response()->json([
+                    'message' => 'Starter plan allows up to 5 categories. Upgrade to Pro for unlimited categories.',
+                    'code' => 'PLAN_LIMIT_REACHED',
+                    'limit' => 5,
+                    'resource' => 'categories',
+                    'current_plan' => 'starter',
+                ], 403));
+            }
+
+            return $lockedRestaurant->categories()->create($data);
+        });
 
         return new MenuCategoryResource(
             $category->refresh()
