@@ -101,7 +101,7 @@ class PlanPermissionAuthorizationTest extends TestCase
             );
 
             self::fail('A manager must not access a restaurant they do not belong to.');
-        } catch (\\Symfony\\Component\\HttpKernel\\Exception\\HttpException $exception) {
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $exception) {
             self::assertSame(403, $exception->getStatusCode());
         }
     }
@@ -121,7 +121,7 @@ class PlanPermissionAuthorizationTest extends TestCase
             );
 
             self::fail('Staff must not access a restaurant they do not belong to.');
-        } catch (\\Symfony\\Component\\HttpKernel\\Exception\\HttpException $exception) {
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $exception) {
             self::assertSame(403, $exception->getStatusCode());
         }
     }
