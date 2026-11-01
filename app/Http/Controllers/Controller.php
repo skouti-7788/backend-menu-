@@ -3,293 +3,95 @@
 namespace App\Http\Controllers;
 
 use App\Models\Restaurant;
+use App\Support\SubscriptionPlans;
 use Illuminate\Http\Request;
 
 abstract class Controller
 {
-    /**
-     * Resolve the restaurant associated with the authenticated user.
-     *
-     * Used by controllers that don't receive Restaurant
-     * directly from the route.
-     */
-    protected function resolveRestaurantForUser(
-        Request $request
-    ): Restaurant {
+    protected function resolveRestaurantForUser(Request $request): Restaurant
+    {
         $user = $request->user();
 
-        if (! $user) {
-            abort(401, 'Unauthenticated.');
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Admin
-        |--------------------------------------------------------------------------
-        |
-        | Admin is not restricted to a single restaurant.
-        | If restaurant_id is explicitly provided, use it.
-        |
-        */
+        if (! $user) abort(401, 'Unauthenticated.');
 
         if ($user->isAdmin()) {
             $restaurantId = $request->input('restaurant_id');
-
-            if ($restaurantId) {
-                return Restaurant::findOrFail($restaurantId);
-            }
-
-            /*
-            | If admin has no explicit restaurant_id,
-            | fallback to the first restaurant.
-            */
-            $restaurant = Restaurant::query()
-                ->latest()
-                ->first();
-
-            if (! $restaurant) {
-                abort(404, 'No restaurant found.');
-            }
-
+            if ($restaurantId) return Restaurant::findOrFail($restaurantId);
+            $restaurant = Restaurant::query()->latest()->first();
+            if (! $restaurant) abort(404, 'No restaurant found.');
             return $restaurant;
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Current restaurant assigned to the user.
-        |--------------------------------------------------------------------------
-        */
-
         if ($user->restaurant_id) {
-            $restaurant = Restaurant::find(
-                $user->restaurant_id
-            );
-
-            if ($restaurant) {
-                /*
-                | Make sure the user is actually related
-                | to this restaurant.
-                */
-                if (
-                    $restaurant->user_id === $user->id
-                    || $user->restaurant_id === $restaurant->id
-                ) {
-                    return $restaurant;
-                }
-            }
+            $restaurant = Restaurant::find($user->restaurant_id);
+            if ($restaurant && ($restaurant->user_id === $user->id || $user->restaurant_id === $restaurant->id)) return $restaurant;
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Backward compatibility:
-        | Owner relationship.
-        |--------------------------------------------------------------------------
-        */
-
-        $restaurant = $user
-            ->restaurants()
-            ->latest()
-            ->first();
-
-        if (! $restaurant) {
-            abort(
-                404,
-                'Restaurant not found for this user.'
-            );
-        }
-
+        $restaurant = $user->restaurants()->latest()->first();
+        if (! $restaurant) abort(404, 'Restaurant not found for this user.');
         return $restaurant;
     }
 
-    /**
-     * Require the authenticated user to be the restaurant owner.
-     */
-    protected function authorizeOwner(
-        Restaurant $restaurant
-    ): void {
+    protected function authorizeOwner(Restaurant $restaurant): void
+    {
         $user = auth()->user();
-
-        if (! $user) {
-            abort(401, 'Unauthenticated.');
-        }
-
-        /*
-        | Admin can manage all restaurants.
-        */
-        if ($user->isAdmin()) {
-            return;
-        }
-
-        /*
-        | Only the real owner (or restaurant_manager, legacy owner-equivalent role)
-        | can continue.
-        */
-        if (
-            $restaurant->user_id === $user->id
-            && ($user->isOwner() || $user->isRestaurantManager())
-        ) {
-            return;
-        }
-
-        abort(
-            403,
-            'You are not authorized to manage this restaurant.'
-        );
+        if (! $user) abort(401, 'Unauthenticated.');
+        if ($user->isAdmin()) return;
+        if ($restaurant->user_id === $user->id && ($user->isOwner() || $user->isRestaurantManager())) return;
+        abort(403, 'You are not authorized to manage this restaurant.');
     }
 
-    /**
-     * Authorize owner or staff access to a restaurant.
-     *
-     * This method checks only restaurant membership.
-     * Permissions should be checked separately when required.
-     */
-    protected function authorizeOwnerOrStaff(
-        Restaurant $restaurant
-    ): void {
+    protected function authorizeOwnerOrStaff(Restaurant $restaurant): void
+    {
         $user = auth()->user();
-
-        if (! $user) {
-            abort(401, 'Unauthenticated.');
-        }
-
-        /*
-        | Admin can access every restaurant.
-        */
-        if ($user->isAdmin()) {
-            return;
-        }
-
-        /*
-        | Restaurant owner (or restaurant_manager, legacy owner-equivalent role).
-        */
-        if (
-            $restaurant->user_id === $user->id
-            && ($user->isOwner() || $user->isRestaurantManager())
-        ) {
-            return;
-        }
-
-        /*
-        | Staff assigned to this restaurant.
-        */
-        if (
-            $user->restaurant_id
-            && (int) $user->restaurant_id === (int) $restaurant->id
-            && $user->isStaff()
-        ) {
-            return;
-        }
-
-        abort(
-            403,
-            'You are not authorized to manage this restaurant.'
-        );
+        if (! $user) abort(401, 'Unauthenticated.');
+        if ($user->isAdmin()) return;
+        if ($restaurant->user_id === $user->id && ($user->isOwner() || $user->isRestaurantManager())) return;
+        if ($user->restaurant_id && (int) $user->restaurant_id === (int) $restaurant->id && $user->isStaff()) return;
+        abort(403, 'You are not authorized to manage this restaurant.');
     }
 
-    /**
-     * Require a specific permission for a restaurant.
-     *
-     * Rules:
-     *
-     * - Admin              → always allowed
-     * - Restaurant owner   → always allowed
-     * - Staff               → must belong to restaurant + permission
-     * - Restaurant manager  → must belong to restaurant + permission
-     * - Everyone else       → forbidden
-     */
-    protected function requirePermission(
-        Restaurant $restaurant,
-        string $permission
-    ): void {
+    protected function requirePlanFeature(Restaurant $restaurant, string $feature): void
+    {
         $user = auth()->user();
+        if ($user?->isAdmin()) return;
 
-        if (! $user) {
-            abort(401, 'Unauthenticated.');
+        if (! SubscriptionPlans::allows($restaurant->plan, $feature)) {
+            abort(response()->json([
+                'message' => 'This feature is not included in your current plan.',
+                'code' => 'PLAN_UPGRADE_REQUIRED',
+                'current_plan' => $restaurant->plan ?: 'starter',
+                'required_feature' => $feature,
+                'plans' => SubscriptionPlans::DEFINITIONS,
+            ], 403));
+        }
+    }
+
+    protected function requirePermission(Restaurant $restaurant, string $permission): void
+    {
+        $user = auth()->user();
+        if (! $user) abort(401, 'Unauthenticated.');
+        if ($user->isAdmin()) return;
+
+        $featureByPermission = [
+            'orders.view' => 'orders', 'orders.add' => 'orders', 'orders.update' => 'orders', 'orders.delete' => 'orders',
+            'tables.view' => 'tables', 'tables.add' => 'tables', 'tables.update' => 'tables', 'tables.delete' => 'tables',
+            'staff.view' => 'staff', 'staff.add' => 'staff', 'staff.update' => 'staff', 'staff.delete' => 'staff',
+            'appearance.view' => 'advanced_appearance', 'appearance.update' => 'advanced_appearance', 'appearance.delete' => 'advanced_appearance',
+        ];
+
+        if (isset($featureByPermission[$permission])) {
+            $this->requirePlanFeature($restaurant, $featureByPermission[$permission]);
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | ADMIN
-        |--------------------------------------------------------------------------
-        */
+        if ($restaurant->user_id === $user->id && ($user->isOwner() || $user->isRestaurantManager())) return;
 
-        if ($user->isAdmin()) {
-            return;
+        $belongsToRestaurant = $user->restaurant_id && (int) $user->restaurant_id === (int) $restaurant->id;
+        if ($belongsToRestaurant && $user->isStaff()) {
+            if ($user->hasPermission($permission)) return;
+            abort(403, 'You do not have permission to perform this action.');
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | OWNER
-        |--------------------------------------------------------------------------
-        |
-        | Owner of this specific restaurant has full access.
-        |
-        */
-
-        if (
-            $restaurant->user_id === $user->id
-            && $user->isOwner()
-        ) {
-            return;
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | RESTAURANT MANAGER (legacy owner-equivalent role)
-        |--------------------------------------------------------------------------
-        |
-        | Treated the same as owner for the restaurant they own,
-        | consistent with MealController/RestaurantController.
-        | Unlike staff, no explicit permission entry is required.
-        |
-        */
-
-        if (
-            $restaurant->user_id === $user->id
-            && $user->isRestaurantManager()
-        ) {
-            return;
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | STAFF
-        |--------------------------------------------------------------------------
-        |
-        | Must belong to this restaurant and hold the explicit permission.
-        |
-        */
-
-        $belongsToRestaurant =
-            $user->restaurant_id
-            && (int) $user->restaurant_id === (int) $restaurant->id;
-
-        if (
-            $belongsToRestaurant
-            && $user->isStaff()
-        ) {
-            /*
-            | Explicit permission check.
-            */
-            if ($user->hasPermission($permission)) {
-                return;
-            }
-
-            abort(
-                403,
-                'You do not have permission to perform this action.'
-            );
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | User doesn't belong to this restaurant.
-        |--------------------------------------------------------------------------
-        */
-
-        abort(
-            403,
-            'You are not authorized to manage this restaurant.'
-        );
+        abort(403, 'You are not authorized to manage this restaurant.');
     }
 }
