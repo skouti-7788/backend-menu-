@@ -77,7 +77,6 @@ abstract class Controller
             'orders.view' => 'orders', 'orders.add' => 'orders', 'orders.update' => 'orders', 'orders.delete' => 'orders',
             'tables.view' => 'tables', 'tables.add' => 'tables', 'tables.update' => 'tables', 'tables.delete' => 'tables',
             'staff.view' => 'staff', 'staff.add' => 'staff', 'staff.update' => 'staff', 'staff.delete' => 'staff',
-            'appearance.view' => 'advanced_appearance', 'appearance.update' => 'advanced_appearance', 'appearance.delete' => 'advanced_appearance',
         ];
 
         if (isset($featureByPermission[$permission])) {
