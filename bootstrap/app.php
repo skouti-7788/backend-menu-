@@ -18,7 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->append(HandleCors::class);
-        $middleware->appendToGroup('api', SetApiLocale::class);
+        $middleware->append(SetApiLocale::class);
         $middleware->append(SecurityHeaders::class);
 
         $middleware->redirectGuestsTo(function (Request $request) {
