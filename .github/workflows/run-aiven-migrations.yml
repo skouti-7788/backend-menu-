@@ -2,16 +2,16 @@
 name: Run Aiven Production Migrations
 
 on:
+  push:
+    branches:
+      - feature/pricing-plans-backend
+    paths:
+      - 'database/migrations/2026_11_02_000002_add_deleted_at_to_meals_table.php'
+      - '.github/workflows/run-aiven-migrations.yml'
   workflow_dispatch:
-    inputs:
-      confirm:
-        description: "Type RUN to confirm production migration"
-        required: true
-        type: string
 
 jobs:
   migrate:
-    if: ${{ inputs.confirm == 'RUN' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -38,11 +38,14 @@ jobs:
         env:
           AIVEN_CA_CERT: ${{ secrets.AIVEN_CA_CERT }}
         run: |
-          test -n "$AIVEN_CA_CERT" || exit 1
+          test -n "$AIVEN_CA_CERT" || {
+            echo "AIVEN_CA_CERT secret is missing"
+            exit 1
+          }
           printf '%s' "$AIVEN_CA_CERT" > "$RUNNER_TEMP/aiven-ca.pem"
           chmod 600 "$RUNNER_TEMP/aiven-ca.pem"
 
-      - name: Run migrations
+      - name: Run targeted production migration
         env:
           DB_CONNECTION: mysql
           DB_HOST: ${{ secrets.AIVEN_DB_HOST }}
@@ -53,4 +56,4 @@ jobs:
           MYSQL_ATTR_SSL_CA: ${{ runner.temp }}/aiven-ca.pem
         run: |
           php artisan migrate:status
-          php artisan migrate --force
+          php artisan migrate --path=database/migrations/2026_11_02_000002_add_deleted_at_to_meals_table.php --force
