@@ -1,6 +1,9 @@
 name: Run targeted Aiven migration
 
 on:
+  push:
+    branches:
+      - ops/run-aiven-migrations
   workflow_dispatch:
     inputs:
       confirm:
@@ -13,7 +16,7 @@ permissions:
 
 jobs:
   migrate:
-    if: ${{ inputs.confirm == 'RUN' }}
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.confirm == 'RUN') || (github.event_name == 'push' && contains(github.event.head_commit.message, '[RUN-AIVEN-MIGRATION]')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
