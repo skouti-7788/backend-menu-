@@ -314,9 +314,9 @@ class MealController extends Controller
             $restaurant
         );
 
-        $meal->update([
-            'status' => MealStatus::INACTIVE,
-        ]);
+        // Soft-delete the meal: it disappears from normal meal queries
+        // while historical order references remain intact.
+        $meal->delete();
 
         return response()->json([
             'message' => 'Meal deleted successfully.',
@@ -375,11 +375,8 @@ class MealController extends Controller
             'meals.delete'
         );
 
-        $restaurant
-            ->meals()
-            ->update([
-                'status' => MealStatus::INACTIVE,
-            ]);
+        // Soft-delete all meals so they stay out of future menu listings.
+        $restaurant->meals()->delete();
 
         return response()->json([
             'message' => 'All meals deleted successfully.',
