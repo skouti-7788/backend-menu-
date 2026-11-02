@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Restaurant;
 use App\Models\User;
+use App\Services\PlanEnforcer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -126,7 +127,7 @@ class PlanSubscriptionTest extends TestCase
             'ends_at' => now()->subDay(),
         ]);
 
-        $plan = app(\App\Services\PlanEnforcer::class)->planFor($restaurant);
+        $plan = app(PlanEnforcer::class)->planFor($restaurant);
 
         $this->assertSame('Starter', $plan['name']);
         $this->assertFalse($plan['features']['staff']);
@@ -279,7 +280,7 @@ class PlanSubscriptionTest extends TestCase
             'ends_at' => now()->addMonth(),
         ]);
 
-        $plan = app(\\App\\Services\\PlanEnforcer::class)->planFor($restaurant);
+        $plan = app(\App\Services\PlanEnforcer::class)->planFor($restaurant);
 
         $this->assertSame('Starter', $plan['name']);
         $this->assertFalse($plan['features']['orders']);
