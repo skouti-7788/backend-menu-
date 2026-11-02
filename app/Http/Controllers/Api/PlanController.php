@@ -191,10 +191,10 @@ class PlanController extends Controller
 
         return response()->json([
             'message' => $alreadyActive
-                ? 'This plan is already active.'
+                ? __('messages.plan_already_active')
                 : ($isFree
-                    ? 'Starter plan activated.'
-                    : 'Plan request created. Payment is required before activation.'),
+                    ? __('messages.starter_activated')
+                    : __('messages.plan_request_created')),
             'subscription' => $subscription,
             'payment_required' => ! $isFree && ! $alreadyActive,
         ], $alreadyActive ? 200 : ($isFree ? 201 : 202));
