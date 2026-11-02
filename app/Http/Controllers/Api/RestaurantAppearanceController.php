@@ -69,6 +69,8 @@ class RestaurantAppearanceController extends Controller
                 'font_family' => ['prohibited'],
                 'header_image' => ['prohibited'],
                 'background_image' => ['prohibited'],
+                'remove_header_image' => ['prohibited'],
+                'remove_background_image' => ['prohibited'],
             ]);
         }
 
