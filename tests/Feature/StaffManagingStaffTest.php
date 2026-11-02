@@ -163,6 +163,16 @@ class StaffManagingStaffTest extends TestCase
             ->assertJsonPath('feature', 'staff')
             ->assertJsonPath('required_plan', 'business');
 
+        $this->postJson('/api/staff', [
+            'name' => 'Starter Staff',
+            'email' => 'starter-staff@example.com',
+            'password' => 'password123',
+            'permissions' => ['meals.view'],
+        ])
+            ->assertForbidden()
+            ->assertJsonPath('code', 'PLAN_FEATURE_LOCKED')
+            ->assertJsonPath('feature', 'staff');
+
         $this->assertDatabaseMissing('users', [
             'email' => 'starter-staff@example.com',
         ]);
