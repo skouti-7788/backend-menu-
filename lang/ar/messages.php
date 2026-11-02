@@ -46,4 +46,7 @@ return [
     'restaurant_access_forbidden' => 'ليست لديك صلاحية الوصول إلى هذا المطعم.',
     'image_upload_failed' => 'تعذر رفع الصورة. يرجى تجربة ملف آخر.',
     'forbidden' => 'ليست لديك صلاحية لتنفيذ هذا الإجراء.',
+    'cannot_grant_permissions' => 'لا يمكنك منح صلاحيات لا تملكها بنفسك:',
+    'staff_not_found' => 'الموظف غير موجود.',
+    'table_wrong_restaurant' => 'هذه الطاولة لا تنتمي إلى هذا المطعم.',
 ];
