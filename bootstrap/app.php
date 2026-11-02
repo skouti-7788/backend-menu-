@@ -34,13 +34,13 @@ return Application::configure(basePath: dirname(__DIR__))
             fn (Request $request) => $request->is('api/*'),
         );
 
-        $exceptions->render(function (\Illuminate\\Auth\\AuthenticationException $e, Request $request) {
+        $exceptions->render(function (\Illuminate\Auth\AuthenticationException $e, Request $request) {
             if ($request->is('api/*')) {
                 return response()->json(['message' => __('messages.unauthenticated')], 401);
             }
         });
 
-        $exceptions->render(function (\Illuminate\\Auth\\Access\\AuthorizationException $e, Request $request) {
+        $exceptions->render(function (\Illuminate\Auth\Access\AuthorizationException $e, Request $request) {
             if ($request->is('api/*')) {
                 return response()->json(['message' => __('messages.forbidden')], 403);
             }
