@@ -28,7 +28,7 @@ class PlanController extends Controller
 
     public function current(Request $request): JsonResponse
     {
-        $restaurant = $this->ownedRestaurant($request);
+        $restaurant = $this->ownedRestaurant($request, $request->query('restaurant_id'));
 
         $subscription = $restaurant->subscriptions()
             ->where('status', 'active')
@@ -56,9 +56,10 @@ class PlanController extends Controller
         $validated = $request->validate([
             'plan' => ['required', 'string', Rule::in(array_keys(config('plans')))],
             'billing_interval' => ['required', 'string', Rule::in(['monthly', 'yearly'])],
+            'restaurant_id' => ['sometimes', 'integer', 'min:1'],
         ]);
 
-        $restaurant = $this->ownedRestaurant($request);
+        $restaurant = $this->ownedRestaurant($request, $validated['restaurant_id'] ?? null);
         $plan = config('plans.'.$validated['plan']);
         $amount = (int) $plan['price_'.$validated['billing_interval']];
 
@@ -138,7 +139,12 @@ class PlanController extends Controller
         ], $alreadyActive ? 200 : ($isFree ? 201 : 202));
     }
 
-    private function ownedRestaurant(Request $request): Restaurant
+    /**
+     * Resolve only a restaurant owned by the authenticated owner.
+     * An explicit ID supports owners with multiple restaurants; omitting it
+     * preserves backwards compatibility by selecting their latest restaurant.
+     */
+    private function ownedRestaurant(Request $request, mixed $restaurantId = null): Restaurant
     {
         $user = $request->user();
 
@@ -146,7 +152,13 @@ class PlanController extends Controller
             abort(403, 'Only the restaurant owner can manage the subscription.');
         }
 
-        $restaurant = $user->restaurants()->latest()->first();
+        $restaurants = $user->restaurants();
+
+        if ($restaurantId !== null) {
+            $restaurants->whereKey($restaurantId);
+        }
+
+        $restaurant = $restaurants->latest()->first();
 
         if (! $restaurant) {
             abort(404, 'Restaurant not found.');
