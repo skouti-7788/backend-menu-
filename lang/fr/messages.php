@@ -45,4 +45,5 @@ return [
     'unauthenticated' => 'Non authentifié.',
     'restaurant_access_forbidden' => 'Vous n’êtes pas autorisé à accéder à ce restaurant.',
     'image_upload_failed' => 'Impossible de téléverser l’image. Veuillez essayer un autre fichier.',
+    'forbidden' => 'Vous n’êtes pas autorisé à effectuer cette action.',
 ];
