@@ -25,4 +25,13 @@ return [
     'cancellation_no_period' => 'Aucune date de fin de facturation confirmée. Contactez le support pour annuler en toute sécurité.',
     'cancellation_scheduled' => 'Annulation programmée à la fin de la période de facturation actuelle.',
     'plans_coming_soon' => 'Les forfaits Pro et Business arrivent bientôt. L’activation payante est temporairement indisponible.',
+    'password_email_not_found' => 'Aucun compte ne correspond à cette adresse e-mail.',
+    'password_reset_if_exists' => 'Si ce compte existe, un lien de réinitialisation sera envoyé par e-mail.',
+    'password_reset_wait' => 'Veuillez patienter avant de demander un nouveau lien.',
+    'password_reset_failed' => 'Impossible de traiter la demande de réinitialisation du mot de passe.',
+    'password_reset_invalid' => 'Le lien de réinitialisation est invalide ou a expiré.',
+    'password_reset_success' => 'Le mot de passe a été réinitialisé avec succès.',
+    'restaurant_create_forbidden' => 'Vous n’êtes pas autorisé à créer un restaurant.',
+    'subscription_owner_only' => 'Seul le propriétaire du restaurant peut gérer l’abonnement.',
+    'restaurant_not_found' => 'Restaurant introuvable.',
 ];
