@@ -114,10 +114,52 @@ class RestaurantAppearanceTest extends TestCase
 
         $this->actingAs($owner, 'sanctum')
             ->postJson('/api/restaurant/appearance', [
+                'primary_color' => '#123456',
+                'font_family' => 'Poppins',
+                'header_image' => 'not-allowed-on-starter',
+                'background_image' => 'not-allowed-on-starter',
                 'remove_header_image' => true,
+                'remove_background_image' => true,
             ])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['remove_header_image']);
+            ->assertJsonValidationErrors([
+                'primary_color',
+                'font_family',
+                'header_image',
+                'background_image',
+                'remove_header_image',
+                'remove_background_image',
+            ]);
+    }
+
+    public function test_starter_plan_can_still_access_basic_appearance_settings(): void
+    {
+        $owner = User::create([
+            'name' => 'Starter Basic Owner',
+            'email' => 'starter-basic-appearance@example.com',
+            'password' => bcrypt('secret123'),
+            'role' => 'restaurant_manager',
+        ]);
+
+        $restaurant = Restaurant::create([
+            'user_id' => $owner->id,
+            'name' => 'Starter Basic Bistro',
+            'slug' => 'starter-basic-bistro',
+        ]);
+
+        $restaurant->subscriptions()->create([
+            'plan' => 'starter',
+            'billing_interval' => 'monthly',
+            'status' => 'active',
+            'amount' => 0,
+            'currency' => 'MAD',
+            'starts_at' => now(),
+        ]);
+
+        $this->actingAs($owner, 'sanctum')
+            ->postJson('/api/restaurant/appearance', [])
+            ->assertOk()
+            ->assertJsonPath('appearance.restaurant_id', $restaurant->id);
     }
 
 }
