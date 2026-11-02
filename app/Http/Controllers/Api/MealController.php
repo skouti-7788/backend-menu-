@@ -296,7 +296,7 @@ class MealController extends Controller
     //     );
 
     //     return response()->json([
-    //         'message' => 'Meal deleted successfully.',
+    //         'message' => __('messages.meal_deleted'),
     //     ]);
     // }
     public function destroy(
@@ -319,7 +319,7 @@ class MealController extends Controller
         $meal->delete();
 
         return response()->json([
-            'message' => 'Meal deleted successfully.',
+            'message' => __('messages.meal_deleted'),
         ]);
     }
     // public function deleteAllMeals(
@@ -363,7 +363,7 @@ class MealController extends Controller
     //     }
 
     //     return response()->json([
-    //         'message' => 'All meals deleted successfully.',
+    //         'message' => __('messages.meals_deleted'),
     //     ]);
     // }
     public function deleteAllMeals(
@@ -379,7 +379,7 @@ class MealController extends Controller
         $restaurant->meals()->delete();
 
         return response()->json([
-            'message' => 'All meals deleted successfully.',
+            'message' => __('messages.meals_deleted'),
         ]);
     }
     /*
@@ -402,7 +402,7 @@ class MealController extends Controller
             (int) $meal->restaurant_id !==
             (int) $restaurant->id
         ) {
-            abort(404, 'Meal not found.');
+            abort(404, __('messages.meal_not_found'));
         }
     }
 
