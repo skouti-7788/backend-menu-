@@ -54,7 +54,7 @@ class AuthController extends Controller
         $user = User::where('email', $request->email)->first();
 
         if (! $user || ! Hash::check($request->password, $user->password)) {
-            return response()->json(['message' => 'Invalid credentials.'], 401);
+            return response()->json(['message' => __('messages.invalid_credentials')], 401);
         }
         $user->tokens()->delete();
         $token = $user->createToken('api-token')->plainTextToken;
@@ -76,7 +76,7 @@ class AuthController extends Controller
     {
         $request->user()?->currentAccessToken()?->delete();
 
-        return response()->json(['message' => 'Logged out successfully.']);
+        return response()->json(['message' => __('messages.logged_out')]);
     }
 
     public function listUsers(): JsonResponse
