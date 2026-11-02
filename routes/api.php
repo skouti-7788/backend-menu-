@@ -117,6 +117,7 @@ Route::get('plans', [PlanController::class, 'index']);
 Route::middleware('auth:sanctum')->prefix('subscription')->group(function () {
     Route::get('/', [PlanController::class, 'current']);
     Route::post('/', [PlanController::class, 'requestChange'])->middleware('throttle:5,1');
+    Route::post('/cancel', [PlanController::class, 'cancel'])->middleware('throttle:5,1');
 });
 
 Route::prefix('menu')->group(function () {
