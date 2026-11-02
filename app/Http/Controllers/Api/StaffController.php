@@ -114,7 +114,7 @@ class StaffController extends Controller
             if ($disallowed->isNotEmpty()) {
                 abort(
                     403,
-                    'You cannot grant permissions you do not have yourself: ' . $disallowed->implode(', ')
+                    __('messages.cannot_grant_permissions') . ' ' . $disallowed->implode(', ')
                 );
             }
         }
@@ -297,7 +297,7 @@ class StaffController extends Controller
             if ($disallowed->isNotEmpty()) {
                 abort(
                     403,
-                    'You cannot grant permissions you do not have yourself: ' . $disallowed->implode(', ')
+                    __('messages.cannot_grant_permissions') . ' ' . $disallowed->implode(', ')
                 );
             }
         }
@@ -370,7 +370,7 @@ class StaffController extends Controller
         ) {
             abort(
                 404,
-                'Staff member not found.'
+                __('messages.staff_not_found')
             );
         }
     }
