@@ -51,6 +51,67 @@ class PlanController extends Controller
         ]);
     }
 
+    public function cancel(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'restaurant_id' => ['sometimes', 'integer', 'min:1'],
+        ]);
+
+        $restaurant = $this->ownedRestaurant($request, $validated['restaurant_id'] ?? null);
+
+        $subscription = $restaurant->subscriptions()
+            ->where('status', 'active')
+            ->where(function ($query) {
+                $query->whereNull('starts_at')
+                    ->orWhere('starts_at', '<=', now());
+            })
+            ->where(function ($query) {
+                $query->whereNull('ends_at')
+                    ->orWhere('ends_at', '>', now());
+            })
+            ->latest()
+            ->first();
+
+        if (! $subscription) {
+            return response()->json([
+                'message' => 'There is no active subscription to cancel.',
+                'subscription' => null,
+            ], 404);
+        }
+
+        if ($subscription->plan === 'starter') {
+            return response()->json([
+                'message' => 'The free Starter plan does not require cancellation.',
+                'subscription' => $subscription,
+            ]);
+        }
+
+        if ($subscription->cancel_at_period_end) {
+            return response()->json([
+                'message' => 'Cancellation is already scheduled.',
+                'subscription' => $subscription,
+            ]);
+        }
+
+        if (! $subscription->ends_at) {
+            return response()->json([
+                'message' => 'This subscription has no confirmed billing period end. Contact support to cancel it safely.',
+                'code' => 'SUBSCRIPTION_END_DATE_REQUIRED',
+            ], 409);
+        }
+
+        $subscription->forceFill([
+            'cancel_at_period_end' => true,
+            'cancelled_at' => now(),
+        ])->save();
+
+        return response()->json([
+            'message' => 'Cancellation scheduled for the end of the current billing period.',
+            'subscription' => $subscription->fresh(),
+            'access_until' => $subscription->ends_at,
+        ]);
+    }
+
     public function requestChange(Request $request): JsonResponse
     {
         $validated = $request->validate([
