@@ -290,7 +290,7 @@ class RestaurantAppearanceController extends Controller
 
                     throw ValidationException::withMessages([
                         $field => [
-                            'The image could not be uploaded. Please try another file.',
+                            __('messages.image_upload_failed'),
                         ],
                     ]);
                 }
