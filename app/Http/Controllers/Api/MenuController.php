@@ -222,7 +222,7 @@ class MenuController extends Controller
         $taxCents = (int) round($subtotalCents * 0.09);
 
         return response()->json([
-            'message' => 'Order created successfully',
+            'message' => __('messages.order_created'),
             'order' => [
                 'id' => $order->id,
                 'restaurant_id' => $order->restaurant_id,
@@ -286,7 +286,7 @@ class MenuController extends Controller
                 ->exists()
         ) {
             return response()->json([
-                'message' => 'The selected meal is not available for this restaurant.',
+                'message' => __('messages.meal_unavailable'),
             ], 422);
         }
 
@@ -299,7 +299,7 @@ class MenuController extends Controller
         ]);
 
         return response()->json([
-            'message' => 'View recorded.',
+            'message' => __('messages.view_recorded'),
         ]);
     }
 }
