@@ -12,7 +12,7 @@ class StaffManagingStaffTest extends TestCase
 {
     use RefreshDatabase;
  
-    private function makeRestaurant(): array
+    private function makeRestaurant(?string $plan = 'business'): array
     {
         $owner = User::create([
             'name' => 'Owner',
@@ -27,15 +27,16 @@ class StaffManagingStaffTest extends TestCase
             'slug' => 'test-restaurant',
         ]);
  
-        // Staff administration is a Business-plan feature.
-        $restaurant->subscriptions()->create([
-            'plan' => 'business',
-            'billing_interval' => 'monthly',
-            'status' => 'active',
-            'amount' => 199,
-            'currency' => 'MAD',
-            'starts_at' => now(),
-        ]);
+        if ($plan !== null) {
+            $restaurant->subscriptions()->create([
+                'plan' => $plan,
+                'billing_interval' => 'monthly',
+                'status' => 'active',
+                'amount' => $plan === 'business' ? 199 : 99,
+                'currency' => 'MAD',
+                'starts_at' => now(),
+            ]);
+        }
 
         return [$owner, $restaurant];
     }
@@ -151,5 +152,21 @@ class StaffManagingStaffTest extends TestCase
  
         $response->assertStatus(201);
     }
+    public function test_starter_plan_blocks_staff_management_with_upgrade_error(): void
+    {
+        [$owner, $restaurant] = $this->makeRestaurant(null);
+
+        $this->actingAs($owner, 'sanctum')
+            ->getJson('/api/staff')
+            ->assertForbidden()
+            ->assertJsonPath('code', 'PLAN_FEATURE_LOCKED')
+            ->assertJsonPath('feature', 'staff')
+            ->assertJsonPath('required_plan', 'business');
+
+        $this->assertDatabaseMissing('users', [
+            'email' => 'starter-staff@example.com',
+        ]);
+    }
+
 }
  
