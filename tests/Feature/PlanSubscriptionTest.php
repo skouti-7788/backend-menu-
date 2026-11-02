@@ -294,4 +294,93 @@ class PlanSubscriptionTest extends TestCase
             ->assertJsonPath('plan.name', 'Starter');
     }
 
+
+    public function test_owner_can_select_one_of_their_own_restaurants_for_subscription(): void
+    {
+        [$owner, $firstRestaurant] = $this->createOwnerWithRestaurant();
+
+        $secondRestaurant = Restaurant::create([
+            'user_id' => $owner->id,
+            'name' => 'Second Plan Restaurant',
+            'slug' => 'second-plan-restaurant',
+        ]);
+
+        $this->actingAs($owner, 'sanctum')
+            ->postJson('/api/subscription', [
+                'plan' => 'starter',
+                'billing_interval' => 'monthly',
+                'restaurant_id' => $secondRestaurant->id,
+            ])
+            ->assertCreated()
+            ->assertJsonPath('subscription.restaurant_id', $secondRestaurant->id);
+
+        $this->assertDatabaseHas('restaurant_subscriptions', [
+            'restaurant_id' => $secondRestaurant->id,
+            'plan' => 'starter',
+            'status' => 'active',
+        ]);
+
+        $this->assertDatabaseMissing('restaurant_subscriptions', [
+            'restaurant_id' => $firstRestaurant->id,
+        ]);
+    }
+
+    public function test_owner_cannot_read_or_change_another_owners_restaurant_subscription(): void
+    {
+        [$owner] = $this->createOwnerWithRestaurant();
+
+        $otherOwner = User::create([
+            'name' => 'Other Plan Owner',
+            'email' => 'other-plan-owner@example.com',
+            'password' => 'password123',
+            'role' => 'owner',
+        ]);
+
+        $otherRestaurant = Restaurant::create([
+            'user_id' => $otherOwner->id,
+            'name' => 'Private Restaurant',
+            'slug' => 'private-plan-restaurant',
+        ]);
+
+        $this->actingAs($owner, 'sanctum')
+            ->getJson('/api/subscription?restaurant_id='.$otherRestaurant->id)
+            ->assertNotFound();
+
+        $this->postJson('/api/subscription', [
+            'plan' => 'starter',
+            'billing_interval' => 'monthly',
+            'restaurant_id' => $otherRestaurant->id,
+        ])->assertNotFound();
+
+        $this->assertDatabaseMissing('restaurant_subscriptions', [
+            'restaurant_id' => $otherRestaurant->id,
+        ]);
+    }
+
+    public function test_owner_can_read_current_subscription_for_selected_owned_restaurant(): void
+    {
+        [$owner] = $this->createOwnerWithRestaurant();
+
+        $secondRestaurant = Restaurant::create([
+            'user_id' => $owner->id,
+            'name' => 'Second Current Restaurant',
+            'slug' => 'second-current-restaurant',
+        ]);
+
+        $secondRestaurant->subscriptions()->create([
+            'plan' => 'starter',
+            'billing_interval' => 'monthly',
+            'status' => 'active',
+            'amount' => 0,
+            'currency' => 'MAD',
+            'starts_at' => now(),
+        ]);
+
+        $this->actingAs($owner, 'sanctum')
+            ->getJson('/api/subscription?restaurant_id='.$secondRestaurant->id)
+            ->assertOk()
+            ->assertJsonPath('subscription.restaurant_id', $secondRestaurant->id)
+            ->assertJsonPath('plan.name', 'Starter');
+    }
+
 }
