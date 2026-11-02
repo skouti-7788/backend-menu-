@@ -10,30 +10,33 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 // use App\Models\Restaurant;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
 
 class AuthController extends Controller
 {
     public function register(RegisterRequest $request): JsonResponse
     {
-        // Force role to owner for registration
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => $request->password,
-            'role' => 'owner',
-        ]);
+        // Create the account and restaurant atomically to avoid orphan users.
+        [$user, $restaurant] = DB::transaction(function () use ($request) {
+            $user = User::create([
+                'name' => $request->name,
+                'email' => $request->email,
+                'password' => $request->password,
+                'role' => 'owner',
+            ]);
 
-        // Create restaurant owned by this user
-        $restaurant = $user->restaurants()->create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'address' => $request->address,
-            'phone' => $request->phone,
-        ]);
+            $restaurant = $user->restaurants()->create([
+                'name' => $request->name,
+                'email' => $request->email,
+                'address' => $request->address,
+                'phone' => $request->phone,
+            ]);
 
-        // Set explicit restaurant_id on user (for tenant scoping)
-        $user->restaurant_id = $restaurant->id;
-        $user->save();
+            $user->restaurant_id = $restaurant->id;
+            $user->save();
+
+            return [$user, $restaurant];
+        });
 
         $token = $user->createToken('api-token')->plainTextToken;
 
@@ -56,7 +59,7 @@ class AuthController extends Controller
         if (! $user || ! Hash::check($request->password, $user->password)) {
             return response()->json(['message' => 'Invalid credentials.'], 401);
         }
-        $user->tokens()->delete();
+        // Keep sessions on other devices; logout revokes only the current token.
         $token = $user->createToken('api-token')->plainTextToken;
 
         return response()->json([
