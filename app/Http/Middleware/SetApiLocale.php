@@ -12,6 +12,8 @@ class SetApiLocale
     public function handle(Request $request, Closure $next): Response
     {
         if (! $request->is('api/*')) {
+            App::setLocale(config('app.locale', 'en'));
+
             return $next($request);
         }
 
