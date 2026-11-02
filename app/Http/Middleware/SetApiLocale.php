@@ -11,6 +11,10 @@ class SetApiLocale
 {
     public function handle(Request $request, Closure $next): Response
     {
+        if (! $request->is('api/*')) {
+            return $next($request);
+        }
+
         $requested = strtolower(str_replace('_', '-', (string) $request->header('Accept-Language', 'en')));
         $locale = match (true) {
             str_starts_with($requested, 'ar') => 'ar',
