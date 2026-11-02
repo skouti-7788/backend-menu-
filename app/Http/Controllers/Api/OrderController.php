@@ -308,7 +308,7 @@ class OrderController extends Controller
 
         return response()->json([
             'message' =>
-                'Order deleted successfully.',
+                __('messages.order_deleted'),
         ]);
     }
 
