@@ -71,8 +71,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::apiResource('restaurants.tables', RestaurantTableController::class);
     Route::prefix('restaurants/{restaurant}')->group(function () {
         Route::delete('meals/all', [MealController::class, 'deleteAllMeals']);
-        Route::apiResource('categories', MenuCategoryController::class)->shallow();
-        Route::apiResource('meals', MealController::class)->shallow();
+        // Keep nested restaurant routes: controllers and dashboard clients
+        // use /restaurants/{restaurant}/categories/{category} and /meals/{meal}.
+        Route::apiResource('categories', MenuCategoryController::class);
+        Route::apiResource('meals', MealController::class);
         Route::apiResource('orders', OrderController::class)->shallow();
     });
     // Change password — authenticated user only
