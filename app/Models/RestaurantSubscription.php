@@ -21,6 +21,8 @@ class RestaurantSubscription extends Model
         'amount' => 'integer',
         'starts_at' => 'datetime',
         'ends_at' => 'datetime',
+        'cancel_at_period_end' => 'boolean',
+        'cancelled_at' => 'datetime',
     ];
 
     public function restaurant()
