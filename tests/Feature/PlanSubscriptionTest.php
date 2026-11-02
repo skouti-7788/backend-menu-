@@ -383,4 +383,144 @@ class PlanSubscriptionTest extends TestCase
             ->assertJsonPath('plan.name', 'Starter');
     }
 
+
+    public function test_owner_can_schedule_paid_subscription_cancellation_at_period_end(): void
+    {
+        [$owner, $restaurant] = $this->createOwnerWithRestaurant();
+
+        $subscription = $restaurant->subscriptions()->create([
+            'plan' => 'pro',
+            'billing_interval' => 'monthly',
+            'status' => 'active',
+            'amount' => 99,
+            'currency' => 'MAD',
+            'starts_at' => now()->subDays(10),
+            'ends_at' => now()->addDays(20),
+        ]);
+
+        $this->actingAs($owner, 'sanctum')
+            ->postJson('/api/subscription/cancel')
+            ->assertOk()
+            ->assertJsonPath('subscription.id', $subscription->id)
+            ->assertJsonPath('subscription.cancel_at_period_end', true);
+
+        $this->assertDatabaseHas('restaurant_subscriptions', [
+            'id' => $subscription->id,
+            'status' => 'active',
+            'cancel_at_period_end' => true,
+        ]);
+
+        $this->getJson('/api/subscription')
+            ->assertOk()
+            ->assertJsonPath('subscription.plan', 'pro')
+            ->assertJsonPath('plan.name', 'Pro');
+    }
+
+    public function test_repeating_subscription_cancellation_is_idempotent(): void
+    {
+        [$owner, $restaurant] = $this->createOwnerWithRestaurant();
+
+        $subscription = $restaurant->subscriptions()->create([
+            'plan' => 'pro',
+            'billing_interval' => 'monthly',
+            'status' => 'active',
+            'amount' => 99,
+            'currency' => 'MAD',
+            'starts_at' => now()->subDays(10),
+            'ends_at' => now()->addDays(20),
+        ]);
+
+        $this->actingAs($owner, 'sanctum')
+            ->postJson('/api/subscription/cancel')
+            ->assertOk()
+            ->assertJsonPath('subscription.cancel_at_period_end', true);
+
+        $cancelledAt = $subscription->fresh()->cancelled_at?->toISOString();
+
+        $this->postJson('/api/subscription/cancel')
+            ->assertOk()
+            ->assertJsonPath('subscription.cancel_at_period_end', true);
+
+        $this->assertSame($cancelledAt, $subscription->fresh()->cancelled_at?->toISOString());
+    }
+
+    public function test_owner_cannot_cancel_another_owners_subscription(): void
+    {
+        [$owner] = $this->createOwnerWithRestaurant();
+        $otherOwner = User::create([
+            'name' => 'Cancellation Other Owner',
+            'email' => 'cancel-other-owner@example.com',
+            'password' => 'password123',
+            'role' => 'owner',
+        ]);
+        $otherRestaurant = Restaurant::create([
+            'user_id' => $otherOwner->id,
+            'name' => 'Other Cancellation Restaurant',
+            'slug' => 'other-cancellation-restaurant',
+        ]);
+        $otherSubscription = $otherRestaurant->subscriptions()->create([
+            'plan' => 'pro',
+            'billing_interval' => 'monthly',
+            'status' => 'active',
+            'amount' => 99,
+            'currency' => 'MAD',
+            'starts_at' => now()->subDays(5),
+            'ends_at' => now()->addDays(25),
+        ]);
+
+        $this->actingAs($owner, 'sanctum')
+            ->postJson('/api/subscription/cancel', [
+                'restaurant_id' => $otherRestaurant->id,
+            ])
+            ->assertNotFound();
+
+        $this->assertDatabaseHas('restaurant_subscriptions', [
+            'id' => $otherSubscription->id,
+            'cancel_at_period_end' => false,
+        ]);
+    }
+
+    public function test_starter_subscription_does_not_need_cancellation(): void
+    {
+        [$owner, $restaurant] = $this->createOwnerWithRestaurant();
+        $subscription = $restaurant->subscriptions()->create([
+            'plan' => 'starter',
+            'billing_interval' => 'monthly',
+            'status' => 'active',
+            'amount' => 0,
+            'currency' => 'MAD',
+            'starts_at' => now(),
+        ]);
+
+        $this->actingAs($owner, 'sanctum')
+            ->postJson('/api/subscription/cancel')
+            ->assertOk()
+            ->assertJsonPath('subscription.id', $subscription->id)
+            ->assertJsonPath('subscription.cancel_at_period_end', false);
+    }
+
+    public function test_cancellation_requires_a_known_billing_period_end(): void
+    {
+        [$owner, $restaurant] = $this->createOwnerWithRestaurant();
+        $subscription = $restaurant->subscriptions()->create([
+            'plan' => 'pro',
+            'billing_interval' => 'monthly',
+            'status' => 'active',
+            'amount' => 99,
+            'currency' => 'MAD',
+            'starts_at' => now()->subDays(5),
+            'ends_at' => null,
+        ]);
+
+        $this->actingAs($owner, 'sanctum')
+            ->postJson('/api/subscription/cancel')
+            ->assertStatus(409)
+            ->assertJsonPath('code', 'SUBSCRIPTION_END_DATE_REQUIRED');
+
+        $this->assertDatabaseHas('restaurant_subscriptions', [
+            'id' => $subscription->id,
+            'cancel_at_period_end' => false,
+        ]);
+    }
+
 }
