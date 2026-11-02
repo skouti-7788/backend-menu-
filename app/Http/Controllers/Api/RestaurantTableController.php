@@ -271,7 +271,7 @@ class RestaurantTableController extends Controller
         if ((int) $table->restaurant_id !== (int) $restaurant->id) {
             abort(
                 403,
-                'This table does not belong to this restaurant.'
+                __('messages.table_wrong_restaurant')
             );
         }
     }
