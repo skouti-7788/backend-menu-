@@ -253,7 +253,7 @@ class MenuCategoryController extends Controller
 
         return response()->json([
             'message' =>
-                'Menu category removed successfully.'
+                __('messages.category_deleted')
         ]);
     }
 
