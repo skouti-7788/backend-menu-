@@ -46,4 +46,7 @@ return [
     'restaurant_access_forbidden' => 'Vous n’êtes pas autorisé à accéder à ce restaurant.',
     'image_upload_failed' => 'Impossible de téléverser l’image. Veuillez essayer un autre fichier.',
     'forbidden' => 'Vous n’êtes pas autorisé à effectuer cette action.',
+    'cannot_grant_permissions' => 'Vous ne pouvez pas attribuer des autorisations que vous ne possédez pas :',
+    'staff_not_found' => 'Membre du personnel introuvable.',
+    'table_wrong_restaurant' => 'Cette table n’appartient pas à ce restaurant.',
 ];
