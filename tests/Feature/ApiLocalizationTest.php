@@ -38,4 +38,20 @@ class ApiLocalizationTest extends TestCase
             ->assertJsonPath('message', 'Ressource introuvable.');
     }
 
+    public function test_api_validation_messages_use_arabic(): void
+    {
+        $this->withHeader('Accept-Language', 'ar')
+            ->postJson('/api/auth/login', [])
+            ->assertStatus(422)
+            ->assertJsonPath('errors.email.0', 'حقل email مطلوب.');
+    }
+
+    public function test_api_validation_messages_default_to_english(): void
+    {
+        $this->withHeader('Accept-Language', 'de')
+            ->postJson('/api/auth/login', [])
+            ->assertStatus(422)
+            ->assertJsonPath('errors.email.0', 'The email field is required.');
+    }
+
 }
