@@ -320,7 +320,7 @@ class RestaurantAppearanceController extends Controller
             $appearance->save();
         }
         return response()->json([
-            'message' => 'Appearance updated successfully.',
+            'message' => __('messages.appearance_updated'),
             'appearance' => $appearance->fresh(),
         ]);
     }
