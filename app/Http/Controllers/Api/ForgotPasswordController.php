@@ -21,7 +21,7 @@ class ForgotPasswordController extends Controller
         $user = User::where('email', $request->input('email'))->first();
         if(!$user) {
             return response()->json([
-                'message' => 'No account found with this email address.',
+                'message' => __('messages.password_email_not_found'),
             ], 422);
         }
 
@@ -32,18 +32,18 @@ class ForgotPasswordController extends Controller
            
             if ($status === Password::RESET_LINK_SENT) {
                 return response()->json([
-                    'message' => 'If the account exists, a password reset link will be sent to its email.',
+                    'message' => __('messages.password_reset_if_exists'),
                 ]);
             }
 
             if ($status === Password::RESET_THROTTLED) {
                 return response()->json([
-                    'message' => 'Please wait before requesting another reset link.',
+                    'message' => __('messages.password_reset_wait'),
                 ], 429);
             }
 
             return response()->json([
-                'message' => 'If the account exists, a password reset link will be sent to its email.',
+                'message' => __('messages.password_reset_if_exists'),
                 ]);
             } catch (\Throwable $e) {
                 $details = [
@@ -53,7 +53,7 @@ class ForgotPasswordController extends Controller
                     'line' => $e->getLine(),
                 ]; 
                 return response()->json([
-                    'message' => 'Unable to process the password reset request.',
+                    'message' => __('messages.password_reset_failed'),
                 ], 500);
             }
     }
@@ -81,12 +81,12 @@ class ForgotPasswordController extends Controller
 
         if ($status !== Password::PASSWORD_RESET) {
             return response()->json([
-                'message' => 'The reset link is invalid or has expired.',
+                'message' => __('messages.password_reset_invalid'),
             ], 422);
         }
 
         return response()->json([
-            'message' => 'Password reset successfully.',
+            'message' => __('messages.password_reset_success'),
         ]);
     }
 }
