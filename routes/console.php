@@ -20,5 +20,5 @@ Schedule::call(function (): void {
             'status' => 'expired',
             'updated_at' => now(),
         ]);
-})->everyFiveMinutes()->withoutOverlapping();
+})->name('expire-ended-restaurant-subscriptions')->everyFiveMinutes()->withoutOverlapping();
 
