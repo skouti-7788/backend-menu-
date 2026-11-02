@@ -33,6 +33,10 @@ class PlanController extends Controller
         $subscription = $restaurant->subscriptions()
             ->where('status', 'active')
             ->where(function ($query) {
+                $query->whereNull('starts_at')
+                    ->orWhere('starts_at', '<=', now());
+            })
+            ->where(function ($query) {
                 $query->whereNull('ends_at')
                     ->orWhere('ends_at', '>', now());
             })
@@ -80,6 +84,10 @@ class PlanController extends Controller
         ) {
             $existingActive = $restaurant->subscriptions()
                 ->where('status', 'active')
+                ->where(function ($query) {
+                    $query->whereNull('starts_at')
+                        ->orWhere('starts_at', '<=', now());
+                })
                 ->where(function ($query) {
                     $query->whereNull('ends_at')
                         ->orWhere('ends_at', '>', now());
