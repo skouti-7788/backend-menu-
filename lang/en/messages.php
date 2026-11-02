@@ -1,0 +1,28 @@
+<?php
+
+return [
+    'resource_not_found' => 'Resource not found.',
+    'invalid_credentials' => 'Invalid credentials.',
+    'logged_out' => 'Logged out successfully.',
+    'meal_deleted' => 'Meal deleted successfully.',
+    'meals_deleted' => 'All meals deleted successfully.',
+    'meal_not_found' => 'Meal not found.',
+    'order_created' => 'Order created successfully.',
+    'meal_unavailable' => 'The selected meal is not available for this restaurant.',
+    'view_recorded' => 'View recorded.',
+    'table_created' => 'Table created successfully.',
+    'tables_created' => 'Tables created successfully.',
+    'table_updated' => 'Table updated successfully.',
+    'table_deleted' => 'Table deleted successfully.',
+    'tables_deleted' => 'All tables deleted successfully.',
+    'staff_created' => 'Staff member created successfully.',
+    'staff_deleted' => 'Staff member deleted successfully.',
+    'permissions_updated' => 'Permissions updated successfully.',
+    'appearance_updated' => 'Appearance updated successfully.',
+    'subscription_missing' => 'There is no active subscription to cancel.',
+    'starter_cancel' => 'The free Starter plan does not require cancellation.',
+    'cancellation_already_scheduled' => 'Cancellation is already scheduled.',
+    'cancellation_no_period' => 'This subscription has no confirmed billing period end. Contact support to cancel it safely.',
+    'cancellation_scheduled' => 'Cancellation scheduled for the end of the current billing period.',
+    'plans_coming_soon' => 'Pro and Business plans are coming soon. Paid activation is temporarily unavailable.',
+];
