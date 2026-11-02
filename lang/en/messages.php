@@ -46,4 +46,7 @@ return [
     'restaurant_access_forbidden' => 'You are not authorized to access this restaurant.',
     'image_upload_failed' => 'The image could not be uploaded. Please try another file.',
     'forbidden' => 'You are not allowed to perform this action.',
+    'cannot_grant_permissions' => 'You cannot grant permissions you do not have yourself:',
+    'staff_not_found' => 'Staff member not found.',
+    'table_wrong_restaurant' => 'This table does not belong to this restaurant.',
 ];
