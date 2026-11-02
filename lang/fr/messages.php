@@ -1,0 +1,28 @@
+<?php
+
+return [
+    'resource_not_found' => 'Ressource introuvable.',
+    'invalid_credentials' => 'Identifiants invalides.',
+    'logged_out' => 'Déconnexion réussie.',
+    'meal_deleted' => 'Le plat a été supprimé.',
+    'meals_deleted' => 'Tous les plats ont été supprimés.',
+    'meal_not_found' => 'Plat introuvable.',
+    'order_created' => 'Commande créée avec succès.',
+    'meal_unavailable' => 'Le plat sélectionné n’est pas disponible dans ce restaurant.',
+    'view_recorded' => 'Visite enregistrée.',
+    'table_created' => 'Table créée avec succès.',
+    'tables_created' => 'Tables créées avec succès.',
+    'table_updated' => 'Table mise à jour avec succès.',
+    'table_deleted' => 'Table supprimée avec succès.',
+    'tables_deleted' => 'Toutes les tables ont été supprimées.',
+    'staff_created' => 'Membre du personnel ajouté avec succès.',
+    'staff_deleted' => 'Membre du personnel supprimé avec succès.',
+    'permissions_updated' => 'Autorisations mises à jour avec succès.',
+    'appearance_updated' => 'Apparence mise à jour avec succès.',
+    'subscription_missing' => 'Aucun abonnement actif à annuler.',
+    'starter_cancel' => 'Le forfait Starter gratuit ne nécessite pas d’annulation.',
+    'cancellation_already_scheduled' => 'L’annulation est déjà programmée.',
+    'cancellation_no_period' => 'Aucune date de fin de facturation confirmée. Contactez le support pour annuler en toute sécurité.',
+    'cancellation_scheduled' => 'Annulation programmée à la fin de la période de facturation actuelle.',
+    'plans_coming_soon' => 'Les forfaits Pro et Business arrivent bientôt. L’activation payante est temporairement indisponible.',
+];
