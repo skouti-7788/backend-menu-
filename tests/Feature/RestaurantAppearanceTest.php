@@ -87,4 +87,37 @@ class RestaurantAppearanceTest extends TestCase
             ->assertJsonPath('appearance.background_color', '#F9FAFB')
             ->assertJsonPath('appearance.font_family', 'Poppins');
     }
+
+    public function test_starter_plan_cannot_remove_advanced_header_image(): void
+    {
+        $owner = User::create([
+            'name' => 'Starter Owner',
+            'email' => 'starter-appearance@example.com',
+            'password' => bcrypt('secret123'),
+            'role' => 'restaurant_manager',
+        ]);
+
+        $restaurant = Restaurant::create([
+            'user_id' => $owner->id,
+            'name' => 'Starter Bistro',
+            'slug' => 'starter-bistro',
+        ]);
+
+        $restaurant->subscriptions()->create([
+            'plan' => 'starter',
+            'billing_interval' => 'monthly',
+            'status' => 'active',
+            'amount' => 0,
+            'currency' => 'MAD',
+            'starts_at' => now(),
+        ]);
+
+        $this->actingAs($owner, 'sanctum')
+            ->postJson('/api/restaurant/appearance', [
+                'remove_header_image' => true,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['remove_header_image']);
+    }
+
 }
