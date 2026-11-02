@@ -1,0 +1,56 @@
+
+name: Run Aiven Production Migrations
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type RUN to confirm production migration"
+        required: true
+        type: string
+
+jobs:
+  migrate:
+    if: ${{ inputs.confirm == 'RUN' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, dom, fileinfo, pdo_mysql
+          coverage: none
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Prepare Laravel
+        run: |
+          cp .env.example .env
+          php artisan key:generate --force
+
+      - name: Write Aiven CA certificate
+        env:
+          AIVEN_CA_CERT: ${{ secrets.AIVEN_CA_CERT }}
+        run: |
+          test -n "$AIVEN_CA_CERT" || exit 1
+          printf '%s' "$AIVEN_CA_CERT" > "$RUNNER_TEMP/aiven-ca.pem"
+          chmod 600 "$RUNNER_TEMP/aiven-ca.pem"
+
+      - name: Run migrations
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: ${{ secrets.AIVEN_DB_HOST }}
+          DB_PORT: ${{ secrets.AIVEN_DB_PORT }}
+          DB_DATABASE: ${{ secrets.AIVEN_DB_DATABASE }}
+          DB_USERNAME: ${{ secrets.AIVEN_DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.AIVEN_DB_PASSWORD }}
+          MYSQL_ATTR_SSL_CA: ${{ runner.temp }}/aiven-ca.pem
+        run: |
+          php artisan migrate:status
+          php artisan migrate --force
