@@ -45,4 +45,5 @@ return [
     'unauthenticated' => 'لم يتم تسجيل الدخول.',
     'restaurant_access_forbidden' => 'ليست لديك صلاحية الوصول إلى هذا المطعم.',
     'image_upload_failed' => 'تعذر رفع الصورة. يرجى تجربة ملف آخر.',
+    'forbidden' => 'ليست لديك صلاحية لتنفيذ هذا الإجراء.',
 ];
