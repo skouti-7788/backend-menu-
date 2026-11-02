@@ -1,0 +1,28 @@
+<?php
+
+return [
+    'resource_not_found' => 'المورد غير موجود.',
+    'invalid_credentials' => 'بيانات تسجيل الدخول غير صحيحة.',
+    'logged_out' => 'تم تسجيل الخروج بنجاح.',
+    'meal_deleted' => 'تم حذف الوجبة بنجاح.',
+    'meals_deleted' => 'تم حذف جميع الوجبات بنجاح.',
+    'meal_not_found' => 'الوجبة غير موجودة.',
+    'order_created' => 'تم إنشاء الطلب بنجاح.',
+    'meal_unavailable' => 'الوجبة المحددة غير متاحة في هذا المطعم.',
+    'view_recorded' => 'تم تسجيل الزيارة.',
+    'table_created' => 'تم إنشاء الطاولة بنجاح.',
+    'tables_created' => 'تم إنشاء الطاولات بنجاح.',
+    'table_updated' => 'تم تحديث الطاولة بنجاح.',
+    'table_deleted' => 'تم حذف الطاولة بنجاح.',
+    'tables_deleted' => 'تم حذف جميع الطاولات بنجاح.',
+    'staff_created' => 'تمت إضافة الموظف بنجاح.',
+    'staff_deleted' => 'تم حذف الموظف بنجاح.',
+    'permissions_updated' => 'تم تحديث الصلاحيات بنجاح.',
+    'appearance_updated' => 'تم تحديث المظهر بنجاح.',
+    'subscription_missing' => 'لا يوجد اشتراك نشط لإلغائه.',
+    'starter_cancel' => 'باقة Starter المجانية لا تحتاج إلى إلغاء.',
+    'cancellation_already_scheduled' => 'تمت جدولة الإلغاء مسبقاً.',
+    'cancellation_no_period' => 'لا يوجد تاريخ مؤكد لنهاية فترة الفوترة. يرجى التواصل مع الدعم لإلغاء الاشتراك بأمان.',
+    'cancellation_scheduled' => 'تمت جدولة الإلغاء في نهاية فترة الفوترة الحالية.',
+    'plans_coming_soon' => 'باقتا Pro وBusiness قادمتان قريباً. تفعيل الاشتراكات المدفوعة غير متاح مؤقتاً.',
+];
