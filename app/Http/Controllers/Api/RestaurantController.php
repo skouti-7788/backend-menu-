@@ -76,7 +76,7 @@ class RestaurantController extends Controller
          * restaurant and must never be able to spin up new ones.
          */
         if (! $user->isAdmin() && ! $user->isOwner() && ! $user->isRestaurantManager()) {
-            abort(403, 'You are not authorized to create a restaurant.');
+            abort(403, __('messages.restaurant_create_forbidden'));
         }
 
         $data = $request
