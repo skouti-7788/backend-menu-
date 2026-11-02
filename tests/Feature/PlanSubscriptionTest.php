@@ -259,4 +259,32 @@ class PlanSubscriptionTest extends TestCase
             ->assertJsonValidationErrors(['billing_interval']);
     }
 
+    public function test_future_dated_active_subscription_does_not_grant_paid_features(): void
+    {
+        [$owner, $restaurant] = $this->createOwnerWithRestaurant();
+
+        $restaurant->subscriptions()->create([
+            'plan' => 'business',
+            'billing_interval' => 'monthly',
+            'status' => 'active',
+            'amount' => 199,
+            'currency' => 'MAD',
+            'starts_at' => now()->addDay(),
+            'ends_at' => now()->addMonth(),
+        ]);
+
+        $plan = app(\\App\\Services\\PlanEnforcer::class)->planFor($restaurant);
+
+        $this->assertSame('Starter', $plan['name']);
+        $this->assertFalse($plan['features']['orders']);
+        $this->assertFalse($plan['features']['tables']);
+        $this->assertFalse($plan['features']['staff']);
+
+        $this->actingAs($owner, 'sanctum')
+            ->getJson('/api/subscription')
+            ->assertOk()
+            ->assertJsonPath('subscription', null)
+            ->assertJsonPath('plan.name', 'Starter');
+    }
+
 }
