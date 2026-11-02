@@ -64,13 +64,13 @@ jobs:
           php -r '
           require "vendor/autoload.php";
           $app = require "bootstrap/app.php";
-          $kernel = $app->make(Illuminate\\Contracts\\Console\\Kernel::class);
+          $kernel = $app->make(Illuminate\Contracts\\Console\\Kernel::class);
           $kernel->bootstrap();
-          if (!Illuminate\\Support\\Facades\\Schema::hasTable("restaurants")) {
+          if (!Illuminate\Support\\Facades\\Schema::hasTable("restaurants")) {
               fwrite(STDERR, "Required table restaurants is missing; stopping without applying the migration.\n");
               exit(1);
           }
-          if (Illuminate\\Support\\Facades\\Schema::hasTable("restaurant_subscriptions")) {
+          if (Illuminate\Support\\Facades\\Schema::hasTable("restaurant_subscriptions")) {
               fwrite(STDERR, "restaurant_subscriptions already exists; stopping without changing it.\n");
               exit(1);
           }
@@ -85,9 +85,9 @@ jobs:
           php -r '
           require "vendor/autoload.php";
           $app = require "bootstrap/app.php";
-          $kernel = $app->make(Illuminate\\Contracts\\Console\\Kernel::class);
+          $kernel = $app->make(Illuminate\Contracts\\Console\\Kernel::class);
           $kernel->bootstrap();
-          if (!Illuminate\\Support\\Facades\\Schema::hasTable("restaurant_subscriptions")) {
+          if (!Illuminate\Support\\Facades\\Schema::hasTable("restaurant_subscriptions")) {
               fwrite(STDERR, "Verification failed: table was not found.\n");
               exit(1);
           }
