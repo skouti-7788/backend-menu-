@@ -210,7 +210,7 @@ class PlanController extends Controller
         $user = $request->user();
 
         if (! $user || ! $user->isOwner()) {
-            abort(403, 'Only the restaurant owner can manage the subscription.');
+            abort(403, __('messages.subscription_owner_only'));
         }
 
         $restaurants = $user->restaurants();
@@ -222,7 +222,7 @@ class PlanController extends Controller
         $restaurant = $restaurants->latest()->first();
 
         if (! $restaurant) {
-            abort(404, 'Restaurant not found.');
+            abort(404, __('messages.restaurant_not_found'));
         }
 
         return $restaurant;
