@@ -74,28 +74,28 @@ class PlanController extends Controller
 
         if (! $subscription) {
             return response()->json([
-                'message' => 'There is no active subscription to cancel.',
+                'message' => __('messages.subscription_missing'),
                 'subscription' => null,
             ], 404);
         }
 
         if ($subscription->plan === 'starter') {
             return response()->json([
-                'message' => 'The free Starter plan does not require cancellation.',
+                'message' => __('messages.starter_cancel'),
                 'subscription' => $subscription,
             ]);
         }
 
         if ($subscription->cancel_at_period_end) {
             return response()->json([
-                'message' => 'Cancellation is already scheduled.',
+                'message' => __('messages.cancellation_already_scheduled'),
                 'subscription' => $subscription,
             ]);
         }
 
         if (! $subscription->ends_at) {
             return response()->json([
-                'message' => 'This subscription has no confirmed billing period end. Contact support to cancel it safely.',
+                'message' => __('messages.cancellation_no_period'),
                 'code' => 'SUBSCRIPTION_END_DATE_REQUIRED',
             ], 409);
         }
@@ -106,7 +106,7 @@ class PlanController extends Controller
         ])->save();
 
         return response()->json([
-            'message' => 'Cancellation scheduled for the end of the current billing period.',
+            'message' => __('messages.cancellation_scheduled'),
             'subscription' => $subscription->fresh(),
             'access_until' => $subscription->ends_at,
         ]);
@@ -131,7 +131,7 @@ class PlanController extends Controller
 
         if (! $isFree) {
             return response()->json([
-                'message' => 'Pro and Business plans are coming soon. Paid activation is temporarily unavailable.',
+                'message' => __('messages.plans_coming_soon'),
                 'payment_required' => true,
                 'payment_available' => false,
                 'subscription' => null,
