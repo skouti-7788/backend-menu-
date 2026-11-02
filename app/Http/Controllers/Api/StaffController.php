@@ -168,7 +168,7 @@ class StaffController extends Controller
         ]);
  
         return response()->json([
-            'message' => 'Staff member created successfully.',
+            'message' => __('messages.staff_created'),
             'staff' => [
                 'id' => $staff->id,
                 'name' => $staff->name,
@@ -217,7 +217,7 @@ class StaffController extends Controller
         });
  
         return response()->json([
-            'message' => 'Staff member deleted successfully.',
+            'message' => __('messages.staff_deleted'),
         ]);
     }
  
@@ -351,7 +351,7 @@ class StaffController extends Controller
         });
  
         return response()->json([
-            'message' => 'Permissions updated successfully.',
+            'message' => __('messages.permissions_updated'),
             'permissions' => $permissions,
         ]);
     }
