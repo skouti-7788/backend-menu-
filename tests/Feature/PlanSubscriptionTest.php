@@ -130,6 +130,12 @@ class PlanSubscriptionTest extends TestCase
 
         $this->assertSame('Starter', $plan['name']);
         $this->assertFalse($plan['features']['staff']);
+
+        $this->actingAs($owner, 'sanctum')
+            ->getJson('/api/subscription')
+            ->assertOk()
+            ->assertJsonPath('subscription', null)
+            ->assertJsonPath('plan.name', 'Starter');
     }
 
     public function test_restaurant_manager_cannot_change_subscription(): void
