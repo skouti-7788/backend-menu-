@@ -65,7 +65,7 @@ class RestaurantTableController extends Controller
         ]);
 
         return response()->json([
-            'message' => 'Table created successfully.',
+            'message' => __('messages.table_created'),
             'table' => $table,
         ], 201);
     }
@@ -122,7 +122,7 @@ class RestaurantTableController extends Controller
         });
 
         return response()->json([
-            'message' => 'Tables created successfully.',
+            'message' => __('messages.tables_created'),
             'tables' => $tables,
         ], 201);
     }
@@ -198,7 +198,7 @@ class RestaurantTableController extends Controller
         ]);
 
         return response()->json([
-            'message' => 'Table updated successfully.',
+            'message' => __('messages.table_updated'),
             'table' => $table->fresh(),
         ]);
     }
@@ -224,7 +224,7 @@ class RestaurantTableController extends Controller
         $table->delete();
 
         return response()->json([
-            'message' => 'Table deleted successfully.',
+            'message' => __('messages.table_deleted'),
         ]);
     }
 
@@ -256,7 +256,7 @@ class RestaurantTableController extends Controller
             ->delete();
 
         return response()->json([
-            'message' => 'All tables deleted successfully.',
+            'message' => __('messages.tables_deleted'),
             'deleted_count' => $count,
         ]);
     }
