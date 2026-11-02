@@ -25,4 +25,13 @@ return [
     'cancellation_no_period' => 'This subscription has no confirmed billing period end. Contact support to cancel it safely.',
     'cancellation_scheduled' => 'Cancellation scheduled for the end of the current billing period.',
     'plans_coming_soon' => 'Pro and Business plans are coming soon. Paid activation is temporarily unavailable.',
+    'password_email_not_found' => 'No account found with this email address.',
+    'password_reset_if_exists' => 'If the account exists, a password reset link will be sent to its email.',
+    'password_reset_wait' => 'Please wait before requesting another reset link.',
+    'password_reset_failed' => 'Unable to process the password reset request.',
+    'password_reset_invalid' => 'The reset link is invalid or has expired.',
+    'password_reset_success' => 'Password reset successfully.',
+    'restaurant_create_forbidden' => 'You are not authorized to create a restaurant.',
+    'subscription_owner_only' => 'Only the restaurant owner can manage the subscription.',
+    'restaurant_not_found' => 'Restaurant not found.',
 ];
