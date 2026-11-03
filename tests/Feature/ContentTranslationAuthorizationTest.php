@@ -279,7 +279,7 @@ class ContentTranslationAuthorizationTest extends TestCase
         $response->assertOk()
             ->assertJsonPath('restaurant.address', '12 Avenue Hassan II, Agadir')
             ->assertJsonPath('restaurant.phone', '+212600000000')
-            ->assertJsonPath('meals.0.price', 45)
+            ->assertJsonPath('meals.0.price', '45.00')
             ->assertJsonPath('meals.0.name', 'Texte traduit')
             ->assertJsonPath('categories.0.name', 'Texte traduit');
 
