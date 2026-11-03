@@ -4,6 +4,7 @@ namespace Tests\Unit;
 
 use App\Services\TranslationService;
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -72,5 +73,46 @@ class TranslationServiceTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
 
         app(TranslationService::class)->translateFields(['name' => 'Meal'], 'es');
+    }
+
+    public function test_it_caches_successful_translations_between_requests(): void
+    {
+        Cache::flush();
+        config(['services.translation.url' => 'http://translation.test/translate']);
+        Http::fake([
+            'translation.test/translate' => Http::response([
+                'translatedText' => 'Chicken tagine',
+                'detectedLanguage' => ['language' => 'ar'],
+            ]),
+        ]);
+
+        $translator = app(TranslationService::class);
+        $source = ['name' => 'طبق اختبار التخزين المؤقت 2026', 'description' => ''];
+
+        $first = $translator->translateFields($source, 'en');
+        $second = $translator->translateFields($source, 'en');
+
+        $this->assertSame('Chicken tagine', $first['name']);
+        $this->assertSame($first, $second);
+        Http::assertSentCount(1);
+    }
+
+    public function test_it_temporarily_caches_original_text_when_provider_is_unavailable(): void
+    {
+        Cache::flush();
+        config(['services.translation.url' => 'http://translation.test/translate']);
+        Http::fake([
+            'translation.test/translate' => Http::response(['message' => 'Unavailable'], 503),
+        ]);
+
+        $translator = app(TranslationService::class);
+        $source = ['name' => 'نص فريد لاختبار الفشل 2026', 'description' => ''];
+
+        $first = $translator->translateFields($source, 'fr');
+        $second = $translator->translateFields($source, 'fr');
+
+        $this->assertSame($source, $first);
+        $this->assertSame($first, $second);
+        Http::assertSentCount(1);
     }
 }
