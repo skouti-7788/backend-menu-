@@ -195,4 +195,49 @@ class ContentTranslationAuthorizationTest extends TestCase
             'source_hash' => null,
         ]);
     }
+
+    public function test_owner_can_read_saved_meal_category_and_restaurant_translations(): void
+    {
+        [$owner, $restaurant] = $this->createOwnerAndRestaurant('read-translations');
+        $category = MenuCategory::create([
+            'restaurant_id' => $restaurant->id,
+            'name' => 'Desserts',
+            'status' => 'active',
+        ]);
+        $meal = Meal::create([
+            'restaurant_id' => $restaurant->id,
+            'category_id' => $category->id,
+            'name' => 'Cake',
+            'price' => 20,
+            'status' => 'active',
+            'featured' => false,
+        ]);
+
+        $this->actingAs($owner)->putJson(
+            "/api/restaurants/{$restaurant->id}/meals/{$meal->id}/translations/fr",
+            ['name' => 'Gâteau', 'description' => 'Gâteau au chocolat']
+        )->assertOk();
+        $this->actingAs($owner)->putJson(
+            "/api/restaurants/{$restaurant->id}/categories/{$category->id}/translations/ar",
+            ['name' => 'حلويات', 'description' => '']
+        )->assertOk();
+        $this->actingAs($owner)->putJson(
+            "/api/restaurants/{$restaurant->id}/translations/en",
+            ['name' => 'My restaurant', 'description' => 'Family food']
+        )->assertOk();
+
+        $this->getJson("/api/restaurants/{$restaurant->id}/meals/{$meal->id}/translations")
+            ->assertOk()
+            ->assertJsonPath('translations.0.language', 'fr')
+            ->assertJsonPath('translations.0.name', 'Gâteau');
+        $this->getJson("/api/restaurants/{$restaurant->id}/categories/{$category->id}/translations")
+            ->assertOk()
+            ->assertJsonPath('translations.0.language', 'ar')
+            ->assertJsonPath('translations.0.name', 'حلويات');
+        $this->getJson("/api/restaurants/{$restaurant->id}/translations")
+            ->assertOk()
+            ->assertJsonPath('translations.0.language', 'en')
+            ->assertJsonPath('translations.0.name', 'My restaurant');
+    }
+
 }
