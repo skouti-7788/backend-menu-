@@ -64,91 +64,115 @@ class TranslationService
     {
         $targetLanguage = strtolower(trim($targetLanguage));
         $this->validateLanguage($targetLanguage);
-
         $fallback = [];
-        foreach ($fields as $key => $value) {
-            $fallback[$key] = is_string($value) ? $value : '';
-        }
+        foreach ($fields as $key => $value) $fallback[$key] = is_string($value) ? $value : '';
 
         $serviceUrl = config('services.translation.url');
-        if (! is_string($serviceUrl) || trim($serviceUrl) === '') {
-            return $fallback;
-        }
+        if (! is_string($serviceUrl) || trim($serviceUrl) === '') return $fallback;
 
         $translated = $fallback;
-        $serviceKey = config('services.translation.key');
+        $contactEmail = config('services.translation.contact_email');
 
         foreach ($fallback as $key => $text) {
-            if (trim($text) === '') {
-                continue;
-            }
+            if (trim($text) === '') continue;
 
-            // Cache both successful results and short-lived fallbacks. If the
-            // provider is down, every menu refresh must not wait for a timeout.
             $cacheKey = 'menu_translation:'.hash('sha256', implode('|', [
-                (string) $serviceUrl,
-                $targetLanguage,
-                $text,
+                'mymemory', $serviceUrl, $targetLanguage, $text,
             ]));
-
-            $cachedTranslation = Cache::get($cacheKey);
-
-            if (is_string($cachedTranslation)) {
-                $translated[$key] = $cachedTranslation;
+            $cached = Cache::get($cacheKey);
+            if (is_string($cached)) {
+                $translated[$key] = $cached;
                 continue;
             }
 
             try {
-                $payload = [
-                    'q' => $text,
-                    'source' => 'auto',
-                    'target' => $targetLanguage,
-                    'format' => 'text',
-                ];
+                $parts = $this->splitIntoChunks($text);
+                $translatedParts = [];
+                $failed = false;
 
-                if (is_string($serviceKey) && $serviceKey !== '') {
-                    $payload['api_key'] = $serviceKey;
+                foreach ($parts as $part) {
+                    $query = ['q' => $part, 'langpair' => 'autodetect|'.$targetLanguage, 'mt' => '1'];
+                    if (is_string($contactEmail) && filter_var($contactEmail, FILTER_VALIDATE_EMAIL)) {
+                        $query['de'] = $contactEmail;
+                    }
+
+                    $response = Http::acceptJson()->connectTimeout(2)->timeout(4)->get($serviceUrl, $query);
+                    $status = (string) $response->json('responseStatus');
+                    $result = $response->json('responseData.translatedText');
+                    $detected = strtolower((string) $response->json('responseData.detectedLanguage', ''));
+
+                    if (! $response->successful() || $status !== '200' || ! is_string($result) || trim($result) === '') {
+                        $failed = true;
+                        break;
+                    }
+                    $translatedParts[] = $detected === $targetLanguage ? $part : $result;
                 }
 
-                $response = Http::acceptJson()
-                    ->asJson()
-                    ->connectTimeout(2)
-                    ->timeout(4)
-                    ->post($serviceUrl, $payload);
-
-                if (! $response->successful()) {
+                if ($failed || count($translatedParts) !== count($parts)) {
                     Cache::put($cacheKey, $text, now()->addMinutes(5));
                     $translated[$key] = $text;
                     continue;
                 }
 
-                $result = $response->json('translatedText');
-                $detectedLanguage = strtolower((string) data_get(
-                    $response->json(),
-                    'detectedLanguage.language',
-                    ''
-                ));
-
-                if (! is_string($result) || trim($result) === '') {
-                    Cache::put($cacheKey, $text, now()->addMinutes(5));
-                    $translated[$key] = $text;
-                    continue;
-                }
-
-                $value = $detectedLanguage === $targetLanguage ? $text : $result;
-
-                // Successful translations are retained for 30 days. Provider
-                // failures above only cache the original text for five minutes.
+                $value = implode(' ', $translatedParts);
                 Cache::put($cacheKey, $value, now()->addDays(30));
                 $translated[$key] = $value;
-            } catch (\Throwable $exception) {
+            } catch (\\Throwable $exception) {
                 report($exception);
                 Cache::put($cacheKey, $text, now()->addMinutes(5));
                 $translated[$key] = $text;
             }
         }
-
         return $translated;
+    }
+
+    /**
+     * MyMemory documents a 500-byte q limit. Use 450 bytes and split on
+     * sentence/word boundaries to leave a safety margin.
+     */
+    private function splitIntoChunks(string $text): array
+    {
+        $sentences = preg_split('/(?<=[.!?؟])\\s+/u', trim($text), -1, PREG_SPLIT_NO_EMPTY) ?: [trim($text)];
+        $chunks = [];
+        $current = '';
+
+        foreach ($sentences as $sentence) {
+            if (strlen($sentence) <= 450) {
+                $candidate = $current === '' ? $sentence : $current.' '.$sentence;
+                if (strlen($candidate) <= 450) {
+                    $current = $candidate;
+                    continue;
+                }
+                if ($current !== '') $chunks[] = $current;
+                $current = $sentence;
+                continue;
+            }
+
+            if ($current !== '') $chunks[] = $current;
+            $current = '';
+            $words = preg_split('/\\s+/u', $sentence, -1, PREG_SPLIT_NO_EMPTY) ?: [$sentence];
+
+            foreach ($words as $word) {
+                if (strlen($word) > 450) {
+                    if ($current !== '') $chunks[] = $current;
+                    $current = '';
+                    while (strlen($word) > 450) {
+                        $piece = mb_strcut($word, 0, 450, 'UTF-8');
+                        $chunks[] = $piece;
+                        $word = mb_substr($word, mb_strlen($piece, 'UTF-8'), null, 'UTF-8');
+                    }
+                }
+                $candidate = $current === '' ? $word : $current.' '.$word;
+                if (strlen($candidate) > 450) {
+                    if ($current !== '') $chunks[] = $current;
+                    $current = $word;
+                } else {
+                    $current = $candidate;
+                }
+            }
+        }
+        if ($current !== '') $chunks[] = $current;
+        return $chunks === [] ? [''] : $chunks;
     }
 
     private function validateLanguage(string $language): void
