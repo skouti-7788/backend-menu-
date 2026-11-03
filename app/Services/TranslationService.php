@@ -1,28 +1,24 @@
 <?php
 
-namespace App\Services;
+namespace App\\Services;
 
-use App\Models\Meal;
-use App\Models\MealTranslation;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Database\QueryException;
+use App\\Models\\Meal;
+use App\\Models\\MealTranslation;
+use Illuminate\\Database\\QueryException;
+use Illuminate\\Support\\Facades\\Http;
 
 class TranslationService
 {
     /**
-     * Translate a meal into the requested language and cache the result.
+     * Return a cached translation, or translate the meal on first request.
+     * The provider detects the source language automatically.
      */
     public function translateMeal(Meal $meal, string $language): MealTranslation
     {
         $language = strtolower(trim($language));
 
-        if ($language === 'en' || $language === 'en_us') {
-            return $this->createOrGetTranslation(
-                $meal,
-                $language,
-                $meal->name,
-                $meal->description ?? ''
-            );
+        if (! in_array($language, ['en', 'fr', 'ar'], true)) {
+            throw new \\InvalidArgumentException('Unsupported translation language.');
         }
 
         $translation = $meal->translations()
@@ -33,10 +29,10 @@ class TranslationService
             return $translation;
         }
 
-        $translated = $this->callExternalTranslationApi(
-            $meal,
-            $language
-        );
+        $translated = $this->translateFields([
+            'name' => $meal->name,
+            'description' => $meal->description ?? '',
+        ], $language);
 
         return $this->createOrGetTranslation(
             $meal,
@@ -47,8 +43,69 @@ class TranslationService
     }
 
     /**
-     * Create a translation safely when concurrent requests happen.
+     * Translate independent text fields with automatic source detection.
+     * Empty fields are kept empty and never sent to the provider.
      */
+    public function translateFields(array $fields, string $targetLanguage): array
+    {
+        $fallback = [];
+        foreach ($fields as $key => $value) {
+            $fallback[$key] = is_string($value) ? $value : '';
+        }
+
+        $serviceUrl = config('services.translation.url');
+        if (! $serviceUrl) {
+            return $fallback;
+        }
+
+        $serviceKey = config('services.translation.key');
+        $translated = $fallback;
+
+        foreach ($fallback as $key => $text) {
+            if (trim($text) === '') {
+                continue;
+            }
+
+            try {
+                $payload = [
+                    'q' => $text,
+                    'source' => 'auto',
+                    'target' => $targetLanguage,
+                    'format' => 'text',
+                ];
+
+                // LibreTranslate accepts the key as a request field, not a Bearer token.
+                if ($serviceKey) {
+                    $payload['api_key'] = $serviceKey;
+                }
+
+                $response = Http::acceptJson()
+                    ->asJson()
+                    ->connectTimeout(3)
+                    ->timeout(10)
+                    ->post($serviceUrl, $payload);
+
+                if (! $response->successful()) {
+                    continue;
+                }
+
+                $result = $response->json('translatedText');
+                $detectedLanguage = strtolower((string) $response->json('detectedLanguage.language'));
+
+                if (is_string($result) && $result !== '') {
+                    // Do not replace a source-language value with an unnecessary translation.
+                    $translated[$key] = $detectedLanguage === $targetLanguage
+                        ? $text
+                        : $result;
+                }
+            } catch (\\Throwable $exception) {
+                report($exception);
+            }
+        }
+
+        return $translated;
+    }
+
     protected function createOrGetTranslation(
         Meal $meal,
         string $language,
@@ -67,7 +124,6 @@ class TranslationService
                 ]
             );
         } catch (QueryException $exception) {
-            // Another concurrent request may have created it.
             $translation = $meal->translations()
                 ->where('language', $language)
                 ->first();
@@ -78,78 +134,5 @@ class TranslationService
 
             throw $exception;
         }
-    }
-
-    /**
-     * Call the external translation provider safely.
-     */
-    protected function callExternalTranslationApi(
-        Meal $meal,
-        string $language
-    ): array {
-        $fallback = [
-            'name' => $meal->name,
-            'description' => $meal->description ?? '',
-        ];
-
-        $serviceUrl = config('services.translation.url');
-        $serviceKey = config('services.translation.key');
-
-        if (! $serviceUrl || ! $serviceKey) {
-            return $fallback;
-        }
-
-        $payload = [
-            'source' => 'en',
-            'target' => $language,
-            'texts' => [
-                $meal->name,
-                $meal->description ?? '',
-            ],
-        ];
-
-        try {
-            $response = Http::withToken($serviceKey)
-                ->connectTimeout(3)
-                ->timeout(10)
-                ->post($serviceUrl, $payload);
-
-            if (! $response->successful()) {
-                return $fallback;
-            }
-
-            $data = $response->json();
-
-            if (isset($data['data']['translations'][0]['translatedText'])) {
-                return [
-                    'name' => $data['data']['translations'][0]['translatedText'],
-                    'description' =>
-                        $data['data']['translations'][1]['translatedText']
-                        ?? $fallback['description'],
-                ];
-            }
-
-            if (isset($data[0]['translations'][0]['text'])) {
-                return [
-                    'name' => $data[0]['translations'][0]['text'],
-                    'description' =>
-                        $data[1]['translations'][0]['text']
-                        ?? $fallback['description'],
-                ];
-            }
-
-            if (isset($data['translations'][0]['translatedText'])) {
-                return [
-                    'name' => $data['translations'][0]['translatedText'],
-                    'description' =>
-                        $data['translations'][1]['translatedText']
-                        ?? $fallback['description'],
-                ];
-            }
-        } catch (\Throwable $exception) {
-            report($exception);
-        }
-
-        return $fallback;
     }
 }
