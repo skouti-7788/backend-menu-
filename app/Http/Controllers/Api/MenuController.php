@@ -55,7 +55,7 @@ class MenuController extends Controller
                     ['language' => $language, 'is_manual' => false],
                     [...$translated, 'source_hash' => $restaurantHash]
                 );
-            } elseif (! $restaurantTranslation) {
+            } else {
                 $restaurantTranslation = new \App\Models\RestaurantTranslation([
                     'language' => $language,
                     ...$restaurantSource,
@@ -94,7 +94,7 @@ class MenuController extends Controller
                         ['language' => $language, 'is_manual' => false],
                         [...$translated, 'source_hash' => $categoryHash]
                     );
-                } elseif (! $translation) {
+                } else {
                     $translation = new \App\Models\MenuCategoryTranslation([
                         'language' => $language,
                         ...$categorySource,
