@@ -76,7 +76,7 @@ class TranslationService
         $apiKey = config('services.translation.key');
 
         if (! in_array($provider, ['mymemory', 'libretranslate'], true)) {
-            report(new \\InvalidArgumentException('Unsupported translation provider: '.$provider));
+            report(new \InvalidArgumentException('Unsupported translation provider: '.$provider));
             return $fallback;
         }
 
