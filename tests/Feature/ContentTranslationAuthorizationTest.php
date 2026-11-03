@@ -241,6 +241,55 @@ class ContentTranslationAuthorizationTest extends TestCase
     }
 
 
+
+    public function test_public_menu_translates_text_without_changing_prices_contact_or_address(): void
+    {
+        config(['services.translation.url' => 'http://translation.test/translate']);
+        Http::fake([
+            'translation.test/translate' => Http::response([
+                'translatedText' => 'Texte traduit',
+                'detectedLanguage' => ['language' => 'en'],
+            ]),
+        ]);
+
+        [$owner, $restaurant] = $this->createOwnerAndRestaurant('non-text-unchanged');
+        $restaurant->update([
+            'address' => '12 Avenue Hassan II, Agadir',
+            'phone' => '+212600000000',
+        ]);
+
+        $category = MenuCategory::create([
+            'restaurant_id' => $restaurant->id,
+            'name' => 'Main dishes',
+            'description' => 'Traditional food',
+            'status' => 'active',
+        ]);
+        $meal = Meal::create([
+            'restaurant_id' => $restaurant->id,
+            'category_id' => $category->id,
+            'name' => 'Chicken tagine',
+            'description' => 'Chicken with olives',
+            'price' => 45,
+            'status' => 'active',
+            'featured' => false,
+        ]);
+
+        $response = $this->getJson("/api/menu/{$restaurant->slug}?lang=fr");
+
+        $response->assertOk()
+            ->assertJsonPath('restaurant.address', '12 Avenue Hassan II, Agadir')
+            ->assertJsonPath('restaurant.phone', '+212600000000')
+            ->assertJsonPath('meals.0.price', 45)
+            ->assertJsonPath('meals.0.name', 'Texte traduit')
+            ->assertJsonPath('categories.0.name', 'Texte traduit');
+
+        Http::assertSent(function ($request) {
+            return $request->url() === 'http://translation.test/translate'
+                && isset($request['q'])
+                && ! is_numeric($request['q']);
+        });
+    }
+
     public function test_owner_can_delete_cleared_manual_translations_and_restore_auto_fallback(): void
     {
         [$owner, $restaurant] = $this->createOwnerAndRestaurant('delete-translations');
