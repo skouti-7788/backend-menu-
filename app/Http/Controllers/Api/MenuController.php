@@ -48,10 +48,18 @@ class MenuController extends Controller
                 'description' => $restaurant->description ?? '',
             ], $language);
 
-            $restaurantTranslation = $restaurant->translations()->firstOrCreate(
-                ['language' => $language],
-                $translated
-            );
+            $restaurantTranslation = (
+                $translated['name'] === $restaurant->name
+                && $translated['description'] === ($restaurant->description ?? '')
+            )
+                ? new \\App\\Models\\RestaurantTranslation([
+                    'language' => $language,
+                    ...$translated,
+                ])
+                : $restaurant->translations()->firstOrCreate(
+                    ['language' => $language],
+                    $translated
+                );
         }
 
         $mealItems = $restaurant->meals->map(function ($meal) use ($language, $translator) {
@@ -78,10 +86,18 @@ class MenuController extends Controller
                     'description' => $category->description ?? '',
                 ], $language);
 
-                $translation = $category->translations()->firstOrCreate(
-                    ['language' => $language],
-                    $translated
-                );
+                $translation = (
+                    $translated['name'] === $category->name
+                    && $translated['description'] === ($category->description ?? '')
+                )
+                    ? new \\App\\Models\\MenuCategoryTranslation([
+                        'language' => $language,
+                        ...$translated,
+                    ])
+                    : $category->translations()->firstOrCreate(
+                        ['language' => $language],
+                        $translated
+                    );
             }
 
             return [
