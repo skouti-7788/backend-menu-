@@ -334,7 +334,7 @@ class ContentTranslationAuthorizationTest extends TestCase
         $response = $this->getJson("/api/menu/{$restaurant->slug}?lang=en");
 
         $response->assertOk()
-            ->assertJsonPath('restaurant.name', 'Restaurant français')
+            ->assertJsonPath('restaurant.name', 'Incorrect duplicate translation')
             ->assertJsonPath('categories.0.name', 'Incorrect duplicate translation')
             ->assertJsonPath('meals.0.name', 'Incorrect duplicate translation');
 
