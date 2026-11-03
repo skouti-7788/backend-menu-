@@ -115,4 +115,31 @@ class TranslationServiceTest extends TestCase
         $this->assertSame($first, $second);
         Http::assertSentCount(1);
     }
+
+    public function test_successful_translations_are_cached_for_thirty_days(): void
+    {
+        Cache::flush();
+        config(['services.translation.url' => 'http://translation.test/translate']);
+        Http::fake([
+            'translation.test/translate' => Http::response([
+                'translatedText' => 'Chicken tagine',
+                'detectedLanguage' => ['language' => 'ar'],
+            ]),
+        ]);
+
+        $source = ['name' => 'طبق مدة التخزين 2026', 'description' => ''];
+        $translator = app(TranslationService::class);
+
+        $translator->translateFields($source, 'en');
+
+        $cacheKey = 'menu_translation:'.hash('sha256', implode('|', [
+            'http://translation.test/translate',
+            'en',
+            $source['name'],
+        ]));
+
+        $this->assertSame('Chicken tagine', Cache::get($cacheKey));
+        $this->travel(29)->days();
+        $this->assertSame('Chicken tagine', Cache::get($cacheKey));
+    }
 }
