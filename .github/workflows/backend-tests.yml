@@ -1,6 +1,9 @@
 name: Backend tests
 
 on:
+  push:
+    branches:
+      - feature/automatic-multilingual-content
   pull_request:
     branches:
       - main
