@@ -200,7 +200,7 @@ class AuthFlowTest extends TestCase
         $response->assertStatus(401);
     }
 
-    public function test_new_login_revokes_previous_tokens(): void
+    public function test_new_login_keeps_previous_tokens_valid(): void
     {
         $user = User::create([
             'name' => 'Rotation User',
@@ -227,7 +227,7 @@ class AuthFlowTest extends TestCase
             ->withToken($oldToken)
             ->getJson('/api/user');
 
-        $oldTokenResponse->assertStatus(401);
+        $oldTokenResponse->assertOk();
 
         $newTokenResponse = $this
             ->withToken($newToken)

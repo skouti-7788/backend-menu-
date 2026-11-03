@@ -112,6 +112,11 @@ class MenuController extends Controller
 
         $appearance = $restaurant->appearance;
 
+        // Public menu capabilities are derived server-side from the active plan.
+        // The frontend uses these flags only for UX; backend authorization remains authoritative.
+        $planEnforcer = app(\App\Services\PlanEnforcer::class);
+        $activePlan = $planEnforcer->planFor($restaurant);
+
         return response()->json([
             'restaurant' => [
                 'id' => $restaurant->id,
@@ -141,6 +146,17 @@ class MenuController extends Controller
             ],
             'categories' => $categoryItems,
             'meals' => $mealItems,
+            'plan' => [
+                'id' => $activePlan['id'] ?? 'starter',
+                'features' => [
+                    'menu_qr' => true,
+                    'orders' => $planEnforcer->hasFeature($restaurant, 'orders'),
+                    'tables' => $planEnforcer->hasFeature($restaurant, 'tables'),
+                    'staff' => $planEnforcer->hasFeature($restaurant, 'staff'),
+                    'advanced_appearance' => $planEnforcer->hasFeature($restaurant, 'advanced_appearance'),
+                ],
+                'limits' => $activePlan['limits'] ?? [],
+            ],
             'tables' => app(\App\Services\PlanEnforcer::class)->hasFeature($restaurant, 'tables')
                 ? $restaurant->tables()
                     ->where('status', '!=', 'inactive')
