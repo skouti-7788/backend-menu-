@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Meal;
 use App\Models\MealTranslation;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 class TranslationService
@@ -82,43 +83,59 @@ class TranslationService
                 continue;
             }
 
-            try {
-                $payload = [
-                    'q' => $text,
-                    'source' => 'auto',
-                    'target' => $targetLanguage,
-                    'format' => 'text',
-                ];
+            // Cache both successful results and short-lived fallbacks. If the
+            // provider is down, every menu refresh must not wait for a timeout.
+            $cacheKey = 'menu_translation:'.hash('sha256', implode('|', [
+                (string) $serviceUrl,
+                $targetLanguage,
+                $text,
+            ]));
 
-                if (is_string($serviceKey) && $serviceKey !== '') {
-                    $payload['api_key'] = $serviceKey;
+            $translated[$key] = Cache::remember(
+                $cacheKey,
+                now()->addMinutes(5),
+                function () use ($text, $targetLanguage, $serviceUrl, $serviceKey): string {
+                    try {
+                        $payload = [
+                            'q' => $text,
+                            'source' => 'auto',
+                            'target' => $targetLanguage,
+                            'format' => 'text',
+                        ];
+
+                        if (is_string($serviceKey) && $serviceKey !== '') {
+                            $payload['api_key'] = $serviceKey;
+                        }
+
+                        $response = Http::acceptJson()
+                            ->asJson()
+                            ->connectTimeout(2)
+                            ->timeout(4)
+                            ->post($serviceUrl, $payload);
+
+                        if (! $response->successful()) {
+                            return $text;
+                        }
+
+                        $result = $response->json('translatedText');
+                        $detectedLanguage = strtolower((string) data_get(
+                            $response->json(),
+                            'detectedLanguage.language',
+                            ''
+                        ));
+
+                        if (! is_string($result) || trim($result) === '') {
+                            return $text;
+                        }
+
+                        return $detectedLanguage === $targetLanguage ? $text : $result;
+                    } catch (\\Throwable $exception) {
+                        report($exception);
+
+                        return $text;
+                    }
                 }
-
-                $response = Http::acceptJson()
-                    ->asJson()
-                    ->connectTimeout(3)
-                    ->timeout(10)
-                    ->post($serviceUrl, $payload);
-
-                if (! $response->successful()) {
-                    continue;
-                }
-
-                $result = $response->json('translatedText');
-                $detectedLanguage = strtolower((string) data_get(
-                    $response->json(),
-                    'detectedLanguage.language',
-                    ''
-                ));
-
-                if (is_string($result) && trim($result) !== '') {
-                    $translated[$key] = $detectedLanguage === $targetLanguage
-                        ? $text
-                        : $result;
-                }
-            } catch (\Throwable $exception) {
-                report($exception);
-            }
+            );
         }
 
         return $translated;
