@@ -141,7 +141,7 @@ class TranslationService
                 // failures above only cache the original text for five minutes.
                 Cache::put($cacheKey, $value, now()->addDays(30));
                 $translated[$key] = $value;
-            } catch (\\Throwable $exception) {
+            } catch (\Throwable $exception) {
                 report($exception);
                 Cache::put($cacheKey, $text, now()->addMinutes(5));
                 $translated[$key] = $text;
