@@ -144,12 +144,10 @@ class TranslationServiceTest extends TestCase
             'services.translation.url' => 'http://translation.internal:5000/translate',
             'services.translation.key' => 'test-secret',
         ]);
-        Http::fake([
-            'translation.internal/*' => Http::response([
-                'translatedText' => 'Chicken tagine',
-                'detectedLanguage' => ['confidence' => 0.99, 'language' => 'ar'],
-            ]),
-        ]);
+        Http::fake(fn () => Http::response([
+            'translatedText' => 'Chicken tagine',
+            'detectedLanguage' => ['confidence' => 0.99, 'language' => 'ar'],
+        ]));
 
         $result = app(TranslationService::class)->translateFields([
             'name' => 'طاجين الدجاج',
@@ -175,10 +173,10 @@ class TranslationServiceTest extends TestCase
             'services.translation.url' => 'http://translation.internal:5000/translate',
             'services.translation.key' => null,
         ]);
-        Http::fake(['translation.internal/*' => Http::response([
+        Http::fake(fn () => Http::response([
             'translatedText' => 'Different wording',
             'detectedLanguage' => ['confidence' => 0.99, 'language' => 'fr'],
-        ])]);
+        ]));
 
         $source = ['name' => 'Bonjour le restaurant', 'description' => ''];
         $this->assertSame($source, app(TranslationService::class)->translateFields($source, 'fr'));
