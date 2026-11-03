@@ -240,4 +240,59 @@ class ContentTranslationAuthorizationTest extends TestCase
             ->assertJsonPath('translations.0.name', 'My restaurant');
     }
 
+
+    public function test_owner_can_delete_cleared_manual_translations_and_restore_auto_fallback(): void
+    {
+        [$owner, $restaurant] = $this->createOwnerAndRestaurant('delete-translations');
+        $category = MenuCategory::create([
+            'restaurant_id' => $restaurant->id,
+            'name' => 'Desserts',
+            'status' => 'active',
+        ]);
+        $meal = Meal::create([
+            'restaurant_id' => $restaurant->id,
+            'category_id' => $category->id,
+            'name' => 'Cake',
+            'price' => 20,
+            'status' => 'active',
+            'featured' => false,
+        ]);
+
+        $this->actingAs($owner)->putJson(
+            "/api/restaurants/{$restaurant->id}/meals/{$meal->id}/translations/fr",
+            ['name' => 'Gâteau', 'description' => 'Au chocolat']
+        )->assertOk();
+        $this->actingAs($owner)->putJson(
+            "/api/restaurants/{$restaurant->id}/categories/{$category->id}/translations/ar",
+            ['name' => 'حلويات', 'description' => '']
+        )->assertOk();
+        $this->actingAs($owner)->putJson(
+            "/api/restaurants/{$restaurant->id}/translations/en",
+            ['name' => 'My restaurant', 'description' => 'Family food']
+        )->assertOk();
+
+        $this->actingAs($owner)->deleteJson(
+            "/api/restaurants/{$restaurant->id}/meals/{$meal->id}/translations/fr"
+        )->assertOk();
+        $this->actingAs($owner)->deleteJson(
+            "/api/restaurants/{$restaurant->id}/categories/{$category->id}/translations/ar"
+        )->assertOk();
+        $this->actingAs($owner)->deleteJson(
+            "/api/restaurants/{$restaurant->id}/translations/en"
+        )->assertOk();
+
+        $this->assertDatabaseMissing('meal_translations', [
+            'meal_id' => $meal->id,
+            'language' => 'fr',
+        ]);
+        $this->assertDatabaseMissing('menu_category_translations', [
+            'menu_category_id' => $category->id,
+            'language' => 'ar',
+        ]);
+        $this->assertDatabaseMissing('restaurant_translations', [
+            'restaurant_id' => $restaurant->id,
+            'language' => 'en',
+        ]);
+    }
+
 }
