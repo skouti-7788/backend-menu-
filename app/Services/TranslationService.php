@@ -135,7 +135,7 @@ class TranslationService
                         : $result;
                 }
             }
-        } catch (\\Throwable $exception) {
+        } catch (\Throwable $exception) {
             report($exception);
         }
 
