@@ -91,51 +91,61 @@ class TranslationService
                 $text,
             ]));
 
-            $translated[$key] = Cache::remember(
-                $cacheKey,
-                now()->addMinutes(5),
-                function () use ($text, $targetLanguage, $serviceUrl, $serviceKey): string {
-                    try {
-                        $payload = [
-                            'q' => $text,
-                            'source' => 'auto',
-                            'target' => $targetLanguage,
-                            'format' => 'text',
-                        ];
+            $cachedTranslation = Cache::get($cacheKey);
 
-                        if (is_string($serviceKey) && $serviceKey !== '') {
-                            $payload['api_key'] = $serviceKey;
-                        }
+            if (is_string($cachedTranslation)) {
+                $translated[$key] = $cachedTranslation;
+                continue;
+            }
 
-                        $response = Http::acceptJson()
-                            ->asJson()
-                            ->connectTimeout(2)
-                            ->timeout(4)
-                            ->post($serviceUrl, $payload);
+            try {
+                $payload = [
+                    'q' => $text,
+                    'source' => 'auto',
+                    'target' => $targetLanguage,
+                    'format' => 'text',
+                ];
 
-                        if (! $response->successful()) {
-                            return $text;
-                        }
-
-                        $result = $response->json('translatedText');
-                        $detectedLanguage = strtolower((string) data_get(
-                            $response->json(),
-                            'detectedLanguage.language',
-                            ''
-                        ));
-
-                        if (! is_string($result) || trim($result) === '') {
-                            return $text;
-                        }
-
-                        return $detectedLanguage === $targetLanguage ? $text : $result;
-                    } catch (\Throwable $exception) {
-                        report($exception);
-
-                        return $text;
-                    }
+                if (is_string($serviceKey) && $serviceKey !== '') {
+                    $payload['api_key'] = $serviceKey;
                 }
-            );
+
+                $response = Http::acceptJson()
+                    ->asJson()
+                    ->connectTimeout(2)
+                    ->timeout(4)
+                    ->post($serviceUrl, $payload);
+
+                if (! $response->successful()) {
+                    Cache::put($cacheKey, $text, now()->addMinutes(5));
+                    $translated[$key] = $text;
+                    continue;
+                }
+
+                $result = $response->json('translatedText');
+                $detectedLanguage = strtolower((string) data_get(
+                    $response->json(),
+                    'detectedLanguage.language',
+                    ''
+                ));
+
+                if (! is_string($result) || trim($result) === '') {
+                    Cache::put($cacheKey, $text, now()->addMinutes(5));
+                    $translated[$key] = $text;
+                    continue;
+                }
+
+                $value = $detectedLanguage === $targetLanguage ? $text : $result;
+
+                // Successful translations are retained for 30 days. Provider
+                // failures above only cache the original text for five minutes.
+                Cache::put($cacheKey, $value, now()->addDays(30));
+                $translated[$key] = $value;
+            } catch (\\Throwable $exception) {
+                report($exception);
+                Cache::put($cacheKey, $text, now()->addMinutes(5));
+                $translated[$key] = $text;
+            }
         }
 
         return $translated;
