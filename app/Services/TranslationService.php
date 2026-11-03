@@ -77,47 +77,66 @@ class TranslationService
 
         $serviceKey = config('services.translation.key');
         $translated = $fallback;
+        $keys = [];
+        $texts = [];
 
         foreach ($fallback as $key => $text) {
-            if (trim($text) === '') {
-                continue;
+            if (trim($text) !== '') {
+                $keys[] = $key;
+                $texts[] = $text;
+            }
+        }
+
+        if ($texts === []) {
+            return $translated;
+        }
+
+        try {
+            $payload = [
+                'q' => $texts,
+                'source' => 'auto',
+                'target' => $targetLanguage,
+                'format' => 'text',
+            ];
+
+            // LibreTranslate accepts the key as a request field, not a Bearer token.
+            if ($serviceKey) {
+                $payload['api_key'] = $serviceKey;
             }
 
-            try {
-                $payload = [
-                    'q' => $text,
-                    'source' => 'auto',
-                    'target' => $targetLanguage,
-                    'format' => 'text',
-                ];
+            $response = Http::acceptJson()
+                ->asJson()
+                ->connectTimeout(3)
+                ->timeout(15)
+                ->post($serviceUrl, $payload);
 
-                // LibreTranslate accepts the key as a request field, not a Bearer token.
-                if ($serviceKey) {
-                    $payload['api_key'] = $serviceKey;
-                }
+            if (! $response->successful()) {
+                return $translated;
+            }
 
-                $response = Http::acceptJson()
-                    ->asJson()
-                    ->connectTimeout(3)
-                    ->timeout(10)
-                    ->post($serviceUrl, $payload);
+            $results = $response->json('translatedText', []);
+            $detectedLanguages = $response->json('detectedLanguage', []);
 
-                if (! $response->successful()) {
-                    continue;
-                }
+            if (! is_array($results)) {
+                $results = [$results];
+            }
+            if (! is_array($detectedLanguages)) {
+                $detectedLanguages = [$detectedLanguages];
+            }
 
-                $result = $response->json('translatedText');
-                $detectedLanguage = strtolower((string) $response->json('detectedLanguage.language'));
+            foreach ($keys as $index => $key) {
+                $result = $results[$index] ?? null;
+                $detectedLanguage = strtolower((string) data_get($detectedLanguages, $index.'.language', ''));
 
                 if (is_string($result) && $result !== '') {
-                    // Do not replace a source-language value with an unnecessary translation.
+                    // Keep the original when it is already in the requested language.
                     $translated[$key] = $detectedLanguage === $targetLanguage
-                        ? $text
+                        ? $fallback[$key]
                         : $result;
                 }
-            } catch (\Throwable $exception) {
-                report($exception);
             }
+        } catch (\\Throwable $exception) {
+            report($exception);
         }
 
         return $translated;
