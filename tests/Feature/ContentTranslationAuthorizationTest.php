@@ -7,6 +7,7 @@ use App\Models\MenuCategory;
 use App\Models\Restaurant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class ContentTranslationAuthorizationTest extends TestCase
@@ -147,5 +148,51 @@ class ContentTranslationAuthorizationTest extends TestCase
         );
 
         $response->assertUnprocessable();
+    }
+
+    public function test_public_menu_does_not_overwrite_a_manual_meal_translation(): void
+    {
+        config(['services.translation.url' => 'http://translation.test/translate']);
+        Http::fake([
+            'translation.test/translate' => Http::response([
+                'translatedText' => 'Automatically translated text',
+                'detectedLanguage' => ['language' => 'en'],
+            ]),
+        ]);
+
+        [$owner, $restaurant] = $this->createOwnerAndRestaurant('manual-protected');
+        $category = MenuCategory::create([
+            'restaurant_id' => $restaurant->id,
+            'name' => 'Main dishes',
+            'status' => 'active',
+        ]);
+        $meal = Meal::create([
+            'restaurant_id' => $restaurant->id,
+            'category_id' => $category->id,
+            'name' => 'Chicken tagine',
+            'description' => 'Chicken with olives',
+            'price' => 45,
+            'status' => 'active',
+            'featured' => false,
+        ]);
+
+        $this->actingAs($owner)->putJson(
+            "/api/restaurants/{$restaurant->id}/meals/{$meal->id}/translations/fr",
+            ['name' => 'Tajine de poulet corrigé', 'description' => 'Poulet aux olives']
+        )->assertOk();
+
+        $response = $this->getJson("/api/menu/{$restaurant->slug}?lang=fr");
+
+        $response->assertOk()
+            ->assertJsonPath('meals.0.name', 'Tajine de poulet corrigé')
+            ->assertJsonPath('meals.0.description', 'Poulet aux olives');
+
+        $this->assertDatabaseHas('meal_translations', [
+            'meal_id' => $meal->id,
+            'language' => 'fr',
+            'name' => 'Tajine de poulet corrigé',
+            'is_manual' => true,
+            'source_hash' => null,
+        ]);
     }
 }
