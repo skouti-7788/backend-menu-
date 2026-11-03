@@ -537,10 +537,14 @@ class PublicMenuSecurityTest extends TestCase
 
             $source = (string) ($request['q'] ?? '');
 
+            $translatedText = str_contains($source, 'أطباق')
+                ? ($target === 'en' ? 'Dishes served before the meal' : 'Plats servis avant le repas')
+                : ($target === 'en' ? 'Starters' : 'Entrées');
+
             return Http::response([
                 'responseStatus' => 200,
                 'responseData' => [
-                    'translatedText' => $target === 'en' ? 'Starters' : 'Entrées',
+                    'translatedText' => $translatedText,
                     'detectedLanguage' => 'ar',
                 ],
             ]);
@@ -571,7 +575,7 @@ class PublicMenuSecurityTest extends TestCase
         $response->assertOk();
         $response->assertJsonPath('categories.0.id', $category->id);
         $response->assertJsonPath('categories.0.name', 'Starters');
-        $response->assertJsonPath('categories.0.description', 'Starters');
+        $response->assertJsonPath('categories.0.description', 'Dishes served before the meal');
 
         $this->assertDatabaseHas('menu_categories', [
             'id' => $category->id,
