@@ -1,79 +1,53 @@
-# Local translation service (LibreTranslate)
+# MyMemory translation service (temporary integration)
 
-This service is for local development and validation. It is intentionally bound to
-127.0.0.1 so it is not exposed to the public internet.
+This provider is used for the temporary Menu Online translation experiment.
+Laravel calls MyMemory from the backend; no API key is required for the public
+`/get` endpoint. Do not call the provider directly from the browser.
 
-## Start
-
-Requirements: Docker Engine and the Docker Compose plugin.
-
-```bash
-docker compose -f docker-compose.translation.yml up -d
-docker compose -f docker-compose.translation.yml logs -f libretranslate
-```
-
-The first startup can take several minutes while the Arabic, French, and English
-language models are prepared. Wait until the container health status is healthy.
-
-## Verify the service
-
-```bash
-curl -fsS http://127.0.0.1:5000/health
-```
-
-Expected response:
-
-```json
-{"status":"ok"}
-```
-
-Test automatic detection and translation:
-
-```bash
-curl -sS http://127.0.0.1:5000/translate \
-  -H 'Content-Type: application/json' \
-  -d '{"q":["طاجين الدجاج","Tajine de poulet","Chicken Tagine"],"source":"auto","target":"en","format":"text"}'
-```
-
-LibreTranslate supports a string or an array for `q`, and returns matching
-`translatedText` and `detectedLanguage` values for batch requests.
-
-## Laravel environment
-
-For a local Laravel backend, set:
+## Environment
 
 ```dotenv
-TRANSLATION_API_URL=http://127.0.0.1:5000/translate
-TRANSLATION_API_KEY=
-TRANSLATION_PROVIDER=libretranslate
+TRANSLATION_API_URL=https://api.mymemory.translated.net/get
+TRANSLATION_CONTACT_EMAIL=
+TRANSLATION_PROVIDER=mymemory
 ```
 
-Then clear cached configuration:
+A valid contact email in `TRANSLATION_CONTACT_EMAIL` can raise the documented
+daily quota from 5,000 to 50,000 characters. Keep it in deployment secrets,
+not in source control. Leave it empty to use the anonymous quota.
+
+After changing environment variables:
 
 ```bash
 php artisan config:clear
 ```
 
-Do not set the backend's translation URL to 127.0.0.1 when Laravel runs on a
-different Docker container. In that case, use the Compose service hostname
-`http://libretranslate:5000/translate` on the shared Docker network.
+## Behaviour
 
-## Stop
+- Supported target languages: `ar`, `fr`, and `en`.
+- Source language is detected independently for each field with
+  `langpair=autodetect|TARGET`.
+- Empty fields are skipped.
+- Same-language results are kept as the original text.
+- Input is split at sentence/word boundaries into chunks of at most 450 bytes;
+  MyMemory documents a 500-byte maximum for each `q` value.
+- A field is returned as translated only if every chunk succeeds. Otherwise,
+  the original field is returned.
+- Successful translations are cached for 30 days; provider failures cache the
+  original text for 5 minutes.
+- Manual translations remain protected by the existing translation records.
 
-```bash
-docker compose -f docker-compose.translation.yml down
-```
+## Limits and caution
 
-The named volume is retained. To remove downloaded models as well:
+Anonymous `/get` usage is documented as 5,000 characters/day. Providing a
+valid `de` email is documented as 50,000 characters/day. Each `q` value is
+limited to 500 bytes.
 
-```bash
-docker compose -f docker-compose.translation.yml down -v
-```
+This is a temporary integration for testing, not production approval. Review
+the provider's terms and data-sharing practices before sending real restaurant
+content or enabling it in production.
 
-## Production
-
-This local Compose file does not make LibreTranslate reachable from Render.
-Deploy LibreTranslate as a separate private Render service in the same region as
-the Laravel API, then set the API's `TRANSLATION_API_URL` to that private
-service's internal address. Do not expose an unauthenticated translation endpoint
-to the public internet. No credentials belong in this repository.
+Official references:
+- https://mymemory.translated.net/doc/spec.php
+- https://mymemory.translated.net/doc/usagelimits.php
+- https://mymemory.translated.net/terms-and-conditions
