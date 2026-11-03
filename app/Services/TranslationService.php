@@ -129,7 +129,7 @@ class TranslationService
                         }
 
                         return $detectedLanguage === $targetLanguage ? $text : $result;
-                    } catch (\\Throwable $exception) {
+                    } catch (\Throwable $exception) {
                         report($exception);
 
                         return $text;
