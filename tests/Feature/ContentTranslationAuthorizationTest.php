@@ -90,14 +90,14 @@ class ContentTranslationAuthorizationTest extends TestCase
         [$restaurant, $category, $meal] = $this->createMenu('legacy');
 
         foreach ([
-            ['restaurant_translations', 'restaurant_id', $restaurant->id, 'Old manual restaurant'],
-            ['menu_category_translations', 'menu_category_id', $category->id, 'Old manual category'],
-            ['meal_translations', 'meal_id', $meal->id, 'Old manual meal'],
-        ] as [$table, $foreignKey, $id, $oldName]) {
+            ['restaurant_translations', 'restaurant_id', $restaurant->id, 'Old manual restaurant', hash('sha256', json_encode(['name' => $restaurant->name, 'description' => $restaurant->description ?? ''], JSON_UNESCAPED_UNICODE))],
+            ['menu_category_translations', 'menu_category_id', $category->id, 'Old manual category', hash('sha256', json_encode(['name' => $category->name, 'description' => $category->description ?? ''], JSON_UNESCAPED_UNICODE))],
+            ['meal_translations', 'meal_id', $meal->id, 'Old manual meal', hash('sha256', json_encode(['name' => $meal->name, 'description' => $meal->description ?? ''], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR))],
+        ] as [$table, $foreignKey, $id, $oldName, $sourceHash]) {
             DB::table($table)->insert([
                 $foreignKey => $id, 'language' => 'fr', 'name' => $oldName,
                 'description' => 'Old manual description', 'is_manual' => true,
-                'source_hash' => null, 'created_at' => now(), 'updated_at' => now(),
+                'source_hash' => $sourceHash, 'created_at' => now(), 'updated_at' => now(),
             ]);
         }
 
