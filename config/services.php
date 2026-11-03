@@ -38,8 +38,8 @@ return [
     ],
 
     'translation' => [
-        'url' => env('TRANSLATION_API_URL'),
-        'key' => env('TRANSLATION_API_KEY'),
-        'provider' => env('TRANSLATION_PROVIDER', 'libretranslate'),
+        'url' => env('TRANSLATION_API_URL', 'https://api.mymemory.translated.net/get'),
+        'contact_email' => env('TRANSLATION_CONTACT_EMAIL'),
+        'provider' => env('TRANSLATION_PROVIDER', 'mymemory'),
     ],
 ];
