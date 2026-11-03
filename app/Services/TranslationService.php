@@ -77,18 +77,51 @@ class TranslationService
 
         $serviceKey = config('services.translation.key');
         $translated = $fallback;
-        $keys = [];
-        $texts = [];
 
+        // Detect each field independently: name and description may be written
+        // in different languages, and LibreTranslate batch detection uses one
+        // detected source language for the whole batch.
         foreach ($fallback as $key => $text) {
-            if (trim($text) !== '') {
-                $keys[] = $key;
-                $texts[] = $text;
+            if (trim($text) === '') {
+                continue;
+            }
+
+            try {
+                $payload = [
+                    'q' => $text,
+                    'source' => 'auto',
+                    'target' => $targetLanguage,
+                    'format' => 'text',
+                ];
+
+                if ($serviceKey) {
+                    $payload['api_key'] = $serviceKey;
+                }
+
+                $response = Http::acceptJson()
+                    ->asJson()
+                    ->connectTimeout(3)
+                    ->timeout(10)
+                    ->post($serviceUrl, $payload);
+
+                if (! $response->successful()) {
+                    continue;
+                }
+
+                $result = $response->json('translatedText');
+                $detectedLanguage = strtolower((string) $response->json('detectedLanguage.language'));
+
+                if (is_string($result) && $result !== '') {
+                    $translated[$key] = $detectedLanguage === $targetLanguage
+                        ? $text
+                        : $result;
+                }
+            } catch (\\Throwable $exception) {
+                report($exception);
             }
         }
 
-        if ($texts === []) {
-            return $translated;
+        return $translated;
         }
 
         try {
