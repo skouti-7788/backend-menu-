@@ -73,4 +73,33 @@ class ContentTranslationController extends Controller
 
         return response()->json(['message' => 'Translation saved.', 'translation' => $translation]);
     }
+
+    public function showMeal(Restaurant $restaurant, Meal $meal): JsonResponse
+    {
+        $this->requirePermission($restaurant, 'meals.update');
+        abort_unless((int) $meal->restaurant_id === (int) $restaurant->id, 404);
+
+        return response()->json([
+            'translations' => $meal->translations()->get(['language', 'name', 'description', 'is_manual']),
+        ]);
+    }
+
+    public function showCategory(Restaurant $restaurant, MenuCategory $category): JsonResponse
+    {
+        $this->requirePermission($restaurant, 'categories.update');
+        abort_unless((int) $category->restaurant_id === (int) $restaurant->id, 404);
+
+        return response()->json([
+            'translations' => $category->translations()->get(['language', 'name', 'description', 'is_manual']),
+        ]);
+    }
+
+    public function showRestaurant(Restaurant $restaurant): JsonResponse
+    {
+        $this->requirePermission($restaurant, 'restaurant.update');
+
+        return response()->json([
+            'translations' => $restaurant->translations()->get(['language', 'name', 'description', 'is_manual']),
+        ]);
+    }
 }
