@@ -31,4 +31,9 @@ class MenuCategory extends Model
     {
         return $this->hasMany(Meal::class);
     }
+
+    public function translations()
+    {
+        return $this->hasMany(MenuCategoryTranslation::class);
+    }
 }

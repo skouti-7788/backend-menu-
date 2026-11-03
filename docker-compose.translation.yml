@@ -1,0 +1,22 @@
+services:
+  libretranslate:
+    image: libretranslate/libretranslate:v1.9.6
+    container_name: menu-online-libretranslate
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5000:5000"
+    environment:
+      LT_LOAD_ONLY: "en,fr,ar"
+      LT_THREADS: "2"
+      LT_DISABLE_WEB_UI: "true"
+    volumes:
+      - libretranslate_models:/home/libretranslate/.local
+    healthcheck:
+      test: ["CMD-SHELL", "./venv/bin/python scripts/healthcheck.py"]
+      interval: 20s
+      timeout: 10s
+      retries: 6
+      start_period: 120s
+
+volumes:
+  libretranslate_models:
