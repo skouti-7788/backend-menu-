@@ -38,7 +38,7 @@ class MenuController extends Controller
             ])
             ->firstOrFail();
 
-        // Translate restaurant content without overwriting manually edited translations.
+        // Generate and cache restaurant translations from the original content.
         $restaurantSource = [
             'name' => $restaurant->name,
             'description' => $restaurant->description ?? '',
@@ -46,7 +46,7 @@ class MenuController extends Controller
         $restaurantHash = hash('sha256', json_encode($restaurantSource, JSON_UNESCAPED_UNICODE));
         $restaurantTranslation = $restaurant->translations->firstWhere('language', $language);
 
-        if (! $restaurantTranslation || (! $restaurantTranslation->is_manual && $restaurantTranslation->source_hash !== $restaurantHash)) {
+        if (! $restaurantTranslation || $restaurantTranslation->source_hash !== $restaurantHash) {
             $translated = $translator->translateFields($restaurantSource, $language);
             $translationSucceeded = $translated !== $restaurantSource;
 
@@ -85,7 +85,7 @@ class MenuController extends Controller
             $categoryHash = hash('sha256', json_encode($categorySource, JSON_UNESCAPED_UNICODE));
             $translation = $category->translations->firstWhere('language', $language);
 
-            if (! $translation || (! $translation->is_manual && $translation->source_hash !== $categoryHash)) {
+            if (! $translation || $translation->source_hash !== $categoryHash) {
                 $translated = $translator->translateFields($categorySource, $language);
                 $translationSucceeded = $translated !== $categorySource;
 
