@@ -40,6 +40,7 @@ return [
     'translation' => [
         'url' => env('TRANSLATION_API_URL', 'https://api.mymemory.translated.net/get'),
         'contact_email' => env('TRANSLATION_CONTACT_EMAIL'),
+        'key' => env('TRANSLATION_API_KEY'),
         'provider' => env('TRANSLATION_PROVIDER', 'mymemory'),
     ],
 ];
