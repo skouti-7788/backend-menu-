@@ -74,6 +74,39 @@ class ContentTranslationController extends Controller
         return response()->json(['message' => 'Translation saved.', 'translation' => $translation]);
     }
 
+
+    public function deleteMeal(Request $request, Restaurant $restaurant, Meal $meal, string $language): JsonResponse
+    {
+        $this->requirePermission($restaurant, 'meals.update');
+        abort_unless((int) $meal->restaurant_id === (int) $restaurant->id, 404);
+        $this->validateLanguage($language);
+
+        $meal->translations()->where('language', $language)->where('is_manual', true)->delete();
+
+        return response()->json(['message' => 'Manual translation removed.']);
+    }
+
+    public function deleteCategory(Request $request, Restaurant $restaurant, MenuCategory $category, string $language): JsonResponse
+    {
+        $this->requirePermission($restaurant, 'categories.update');
+        abort_unless((int) $category->restaurant_id === (int) $restaurant->id, 404);
+        $this->validateLanguage($language);
+
+        $category->translations()->where('language', $language)->where('is_manual', true)->delete();
+
+        return response()->json(['message' => 'Manual translation removed.']);
+    }
+
+    public function deleteRestaurant(Request $request, Restaurant $restaurant, string $language): JsonResponse
+    {
+        $this->requirePermission($restaurant, 'restaurant.update');
+        $this->validateLanguage($language);
+
+        $restaurant->translations()->where('language', $language)->where('is_manual', true)->delete();
+
+        return response()->json(['message' => 'Manual translation removed.']);
+    }
+
     public function showMeal(Restaurant $restaurant, Meal $meal): JsonResponse
     {
         $this->requirePermission($restaurant, 'meals.update');
