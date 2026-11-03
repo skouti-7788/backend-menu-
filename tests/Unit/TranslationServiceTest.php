@@ -139,7 +139,19 @@ class TranslationServiceTest extends TestCase
         ]));
 
         $this->assertSame('Chicken tagine', Cache::get($cacheKey));
+
+        // The translation remains cached before its 30-day TTL expires.
         $this->travel(29)->days();
         $this->assertSame('Chicken tagine', Cache::get($cacheKey));
+
+        // After expiry, the next request must call the provider again.
+        $translator->translateFields($source, 'en');
+        Http::assertSentCount(1);
+
+        $this->travel(2)->days();
+        $this->assertNull(Cache::get($cacheKey));
+
+        $translator->translateFields($source, 'en');
+        Http::assertSentCount(2);
     }
 }
