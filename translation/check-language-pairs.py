@@ -8,6 +8,7 @@ import urllib.error
 import urllib.request
 
 BASE_URL = os.environ.get("TRANSLATION_BASE_URL", "http://127.0.0.1:5001").rstrip("/")
+API_KEY = os.environ.get("TRANSLATION_API_KEY", "")
 CASES = [
     ("ar", "fr", "طاجين الدجاج مع الزيتون"),
     ("ar", "en", "طاجين الدجاج مع الزيتون"),
@@ -39,12 +40,15 @@ def main():
         failures = []
         for expected_source, target, sample in CASES:
             try:
-                result = post_json("/translate", {
+                payload = {
                     "q": sample,
                     "source": "auto",
                     "target": target,
                     "format": "text",
-                })
+                }
+                if API_KEY:
+                    payload["api_key"] = API_KEY
+                result = post_json("/translate", payload)
                 translated = result.get("translatedText")
                 detected = (result.get("detectedLanguage") or {}).get("language")
                 if not isinstance(translated, str) or not translated.strip():
