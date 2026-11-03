@@ -1,6 +1,6 @@
-# MyMemory translation service (temporary integration)
+# Automatic translation providers (MyMemory test / LibreTranslate self-hosted)
 
-This provider is used for the temporary Menu Online translation experiment.
+MyMemory is the temporary provider for the Menu Online translation experiment. LibreTranslate is the self-hosted provider option.
 Laravel calls MyMemory from the backend; no API key is required for the public
 `/get` endpoint. Do not call the provider directly from the browser.
 
@@ -10,6 +10,7 @@ Laravel calls MyMemory from the backend; no API key is required for the public
 TRANSLATION_API_URL=https://api.mymemory.translated.net/get
 TRANSLATION_CONTACT_EMAIL=
 TRANSLATION_PROVIDER=mymemory
+# For self-hosted LibreTranslate, use provider=libretranslate, its /translate URL, and an optional private API key.
 ```
 
 A valid contact email in `TRANSLATION_CONTACT_EMAIL` can raise the documented
@@ -35,7 +36,7 @@ php artisan config:clear
   the original field is returned.
 - Successful translations are cached for 30 days; provider failures cache the
   original text for 5 minutes.
-- Manual translations remain protected by the existing translation records.
+- All restaurant content translations are generated and cached automatically by the backend. Restaurant users do not enter or manage translated fields.
 
 ## Limits and caution
 
