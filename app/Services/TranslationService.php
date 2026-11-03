@@ -13,8 +13,8 @@ class TranslationService
     private const LANGUAGES = ['en', 'fr', 'ar'];
 
     /**
-     * Return a cached translation or generate one on first request.
-     * Manual translations are never replaced by automatic translations.
+     * Return a cached automatic translation or generate one on first request.
+     * Legacy manually entered rows are refreshed automatically.
      */
     public function translateMeal(Meal $meal, string $language): MealTranslation
     {
@@ -32,7 +32,7 @@ class TranslationService
             ? $meal->translations->firstWhere('language', $language)
             : $meal->translations()->where('language', $language)->first();
 
-        if ($translation && ($translation->is_manual || $translation->source_hash === $sourceHash)) {
+        if ($translation && $translation->source_hash === $sourceHash) {
             return $translation;
         }
 
@@ -197,7 +197,7 @@ class TranslationService
     ): MealTranslation {
         try {
             // The unique key is (meal_id, language). This update only runs
-            // after the caller has confirmed the row is not manually edited.
+            // after the caller has checked the source hash.
             return MealTranslation::updateOrCreate(
                 [
                     'meal_id' => $meal->id,
@@ -216,6 +216,13 @@ class TranslationService
                 ->first();
 
             if ($translation) {
+                $translation->forceFill([
+                    'name' => $name,
+                    'description' => $description,
+                    'is_manual' => false,
+                    'source_hash' => $sourceHash,
+                ])->save();
+
                 return $translation;
             }
 
