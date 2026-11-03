@@ -79,18 +79,25 @@ as the Laravel API:
    `libretranslate/libretranslate:latest`.
 2. Set the service name to `libretranslate`. Choose the **same region** as the
    Laravel API so the API can reach it over Render's private network.
-3. Set the start command to:
+3. Set the Docker command/arguments to:
 
    ```bash
    --host 0.0.0.0 --port 5000 --load-only en,fr,ar --disable-web-ui
    ```
 
+   Confirm that the selected Render image deployment mode accepts a Docker
+   command override. If it does not, use a small Dockerfile based on the
+   LibreTranslate image that sets these arguments as its CMD.
+
 4. Attach a persistent disk at
-   `/home/libretranslate/.local/share` so downloaded Argos language models
-   survive service restarts. Persistent disks require a paid Render service.
-5. Do not add a public HTTP endpoint or expose the service to the public internet.
-   Keep it private to the Render workspace.
-6. In the Laravel API service's environment settings, set:
+   `/home/libretranslate/.local/share` only after confirming this is the
+   writable data directory used by the selected LibreTranslate image version.
+   Persistent disks require a paid Render service.
+5. Keep the service private and do not expose it to the public internet.
+   Verify the actual private hostname assigned by Render; do not assume it is
+   always `libretranslate`.
+6. In the Laravel API service's environment settings, set the URL using the
+   actual private hostname and port, for example:
 
    ```dotenv
    TRANSLATION_API_URL=http://libretranslate:5000/translate
