@@ -76,10 +76,13 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::apiResource('orders', OrderController::class)->shallow();
         Route::get('meals/{meal}/translations', [ContentTranslationController::class, 'showMeal']);
         Route::put('meals/{meal}/translations/{language}', [ContentTranslationController::class, 'updateMeal']);
+        Route::delete('meals/{meal}/translations/{language}', [ContentTranslationController::class, 'deleteMeal']);
         Route::get('categories/{category}/translations', [ContentTranslationController::class, 'showCategory']);
         Route::put('categories/{category}/translations/{language}', [ContentTranslationController::class, 'updateCategory']);
+        Route::delete('categories/{category}/translations/{language}', [ContentTranslationController::class, 'deleteCategory']);
         Route::get('translations', [ContentTranslationController::class, 'showRestaurant']);
         Route::put('translations/{language}', [ContentTranslationController::class, 'updateRestaurant']);
+        Route::delete('translations/{language}', [ContentTranslationController::class, 'deleteRestaurant']);
     });
     // Change password — authenticated user only
     Route::put('auth/password', [PasswordController::class, 'update'])
