@@ -14,6 +14,8 @@ class MealTranslation extends Model
         'language',
         'name',
         'description',
+        'is_manual',
+        'source_hash',
     ];
 
     public function meal()
