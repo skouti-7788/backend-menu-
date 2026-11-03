@@ -21,18 +21,21 @@ class TranslationService
             throw new \InvalidArgumentException('Unsupported translation language.');
         }
 
+        $source = [
+            'name' => $meal->name,
+            'description' => $meal->description ?? '',
+        ];
+        $sourceHash = hash('sha256', json_encode($source, JSON_UNESCAPED_UNICODE));
+
         $translation = $meal->translations()
             ->where('language', $language)
             ->first();
 
-        if ($translation) {
+        if ($translation && ($translation->is_manual || $translation->source_hash === $sourceHash)) {
             return $translation;
         }
 
-        $translated = $this->translateFields([
-            'name' => $meal->name,
-            'description' => $meal->description ?? '',
-        ], $language);
+        $translated = $this->translateFields($source, $language);
 
         // Do not cache a fallback after a provider outage or missing configuration.
         if (
@@ -51,7 +54,8 @@ class TranslationService
             $meal,
             $language,
             $translated['name'],
-            $translated['description']
+            $translated['description'],
+            $sourceHash
         );
     }
 
@@ -123,17 +127,20 @@ class TranslationService
         Meal $meal,
         string $language,
         string $name,
-        string $description
+        string $description,
+        string $sourceHash
     ): MealTranslation {
         try {
-            return MealTranslation::firstOrCreate(
+            return MealTranslation::updateOrCreate(
                 [
                     'meal_id' => $meal->id,
                     'language' => $language,
+                    'is_manual' => false,
                 ],
                 [
                     'name' => $name,
                     'description' => $description,
+                    'source_hash' => $sourceHash,
                 ]
             );
         } catch (QueryException $exception) {
