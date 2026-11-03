@@ -32,7 +32,7 @@ class TranslationService
             ? $meal->translations->firstWhere('language', $language)
             : $meal->translations()->where('language', $language)->first();
 
-        if ($translation && $translation->source_hash === $sourceHash) {
+        if ($translation && ! $translation->is_manual && $translation->source_hash === $sourceHash) {
             return $translation;
         }
 
