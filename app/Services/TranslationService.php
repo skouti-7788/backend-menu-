@@ -117,7 +117,7 @@ class TranslationService
                 $value = implode(' ', $translatedParts);
                 Cache::put($cacheKey, $value, now()->addDays(30));
                 $translated[$key] = $value;
-            } catch (\\Throwable $exception) {
+            } catch (\Throwable $exception) {
                 report($exception);
                 Cache::put($cacheKey, $text, now()->addMinutes(5));
                 $translated[$key] = $text;
