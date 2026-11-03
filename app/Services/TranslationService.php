@@ -1,11 +1,11 @@
 <?php
 
-namespace App\\Services;
+namespace App\Services;
 
-use App\\Models\\Meal;
-use App\\Models\\MealTranslation;
-use Illuminate\\Database\\QueryException;
-use Illuminate\\Support\\Facades\\Http;
+use App\Models\Meal;
+use App\Models\MealTranslation;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Http;
 
 class TranslationService
 {
@@ -127,7 +127,7 @@ class TranslationService
     private function validateLanguage(string $language): void
     {
         if (! in_array($language, self::LANGUAGES, true)) {
-            throw new \\InvalidArgumentException('Unsupported translation language.');
+            throw new \InvalidArgumentException('Unsupported translation language.');
         }
     }
 
