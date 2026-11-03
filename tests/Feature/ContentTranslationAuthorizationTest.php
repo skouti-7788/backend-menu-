@@ -291,6 +291,53 @@ class ContentTranslationAuthorizationTest extends TestCase
     }
 
 
+    public function test_backend_detects_source_language_and_uses_auto_translation_for_all_menu_content(): void
+    {
+        config(['services.translation.url' => 'http://translation.test/translate']);
+        Http::fake(function ($request) {
+            return Http::response([
+                'translatedText' => 'Incorrect duplicate translation',
+                'detectedLanguage' => ['language' => 'fr'],
+            ]);
+        });
+
+        [, $restaurant] = $this->createOwnerAndRestaurant('auto-language-detection');
+        $restaurant->update([
+            'name' => 'Restaurant français',
+            'description' => 'Cuisine traditionnelle',
+        ]);
+
+        $category = MenuCategory::create([
+            'restaurant_id' => $restaurant->id,
+            'name' => 'Plats principaux',
+            'description' => 'Cuisine marocaine',
+            'status' => 'active',
+        ]);
+
+        Meal::create([
+            'restaurant_id' => $restaurant->id,
+            'category_id' => $category->id,
+            'name' => 'Tajine de poulet',
+            'description' => 'Poulet aux olives',
+            'price' => 45,
+            'status' => 'active',
+            'featured' => false,
+        ]);
+
+        $response = $this->getJson("/api/menu/{$restaurant->slug}?lang=en");
+
+        $response->assertOk()
+            ->assertJsonPath('restaurant.name', 'Restaurant français')
+            ->assertJsonPath('categories.0.name', 'Plats principaux')
+            ->assertJsonPath('meals.0.name', 'Tajine de poulet');
+
+        Http::assertSent(function ($request) {
+            return $request->url() === 'http://translation.test/translate'
+                && $request['source'] === 'auto'
+                && $request['target'] === 'en';
+        });
+    }
+
     public function test_public_menu_refreshes_automatic_translations_when_source_text_changes(): void
     {
         config(['services.translation.url' => 'http://translation.test/translate']);
