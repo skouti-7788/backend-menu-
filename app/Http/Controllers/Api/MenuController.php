@@ -28,54 +28,78 @@ class MenuController extends Controller
         $language = $validated['lang'] ?? 'en';
         $restaurant = Restaurant::where('slug', $slug)
             ->with([
-                'categories' => function ($query) {
-                    $query->where('status', MealStatus::ACTIVE);
-                },
-                'meals' => function ($query) {
-                    $query->where('status', MealStatus::ACTIVE)
-                        ->with('translations');
-                },
+                'categories' => fn ($query) => $query
+                    ->where('status', MealStatus::ACTIVE)
+                    ->with('translations'),
+                'meals' => fn ($query) => $query
+                    ->where('status', MealStatus::ACTIVE)
+                    ->with('translations'),
+                'translations',
             ])
             ->firstOrFail();
 
-        $meals = $restaurant->meals;
-        // $restaurant = Restaurant::where('slug', $slug)
-        //     ->with([
-        //         'categories' => function ($query) {
-        //             $query->where('status', MealStatus::ACTIVE);
-        //         },
-        //         'meals.translations',
-        //     ])
-        //     ->firstOrFail();
+        // Translate restaurant name and description; operational/contact fields stay unchanged.
+        $restaurantTranslation = $restaurant->translations
+            ->firstWhere('language', $language);
 
-        // $meals = $restaurant->meals->filter(fn ($meal) => $meal->status->value === 'active');
+        if (! $restaurantTranslation) {
+            $translated = $translator->translateFields([
+                'name' => $restaurant->name,
+                'description' => $restaurant->description ?? '',
+            ], $language);
 
-        $meals = $meals->map(function ($meal) use ($language, $translator) {
-            if ($language !== 'en') {
-                $translation = $translator->translateMeal($meal, $language);
-                $meal->name = $translation->name;
-                $meal->description = $translation->description;
-            }
+            $restaurantTranslation = $restaurant->translations()->firstOrCreate(
+                ['language' => $language],
+                $translated
+            );
+        }
+
+        $mealItems = $restaurant->meals->map(function ($meal) use ($language, $translator) {
+            $translation = $translator->translateMeal($meal, $language);
 
             return [
                 'id' => $meal->id,
                 'category_id' => $meal->category_id,
-                'name' => $meal->name,
-                'description' => $meal->description,
+                'name' => $translation->name,
+                'description' => $translation->description,
                 'price' => $meal->price,
                 'image_url' => $meal->image_url,
                 'featured' => $meal->featured,
             ];
         });
-        
+
+        $categoryItems = $restaurant->categories->map(function ($category) use ($language, $translator) {
+            $translation = $category->translations
+                ->firstWhere('language', $language);
+
+            if (! $translation) {
+                $translated = $translator->translateFields([
+                    'name' => $category->name,
+                    'description' => $category->description ?? '',
+                ], $language);
+
+                $translation = $category->translations()->firstOrCreate(
+                    ['language' => $language],
+                    $translated
+                );
+            }
+
+            return [
+                'id' => $category->id,
+                'name' => $translation->name,
+                'description' => $translation->description,
+                'image_url' => $category->image ? url('storage/'.$category->image) : null,
+            ];
+        });
+
         $appearance = $restaurant->appearance;
 
         return response()->json([
             'restaurant' => [
                 'id' => $restaurant->id,
                 'slug' => $restaurant->slug,
-                'name' => $restaurant->name,
-                'description' => $restaurant->description,
+                'name' => $restaurantTranslation->name,
+                'description' => $restaurantTranslation->description,
                 'address' => $restaurant->address,
                 'phone' => $restaurant->phone,
                 'email' => $restaurant->email,
@@ -86,38 +110,27 @@ class MenuController extends Controller
                 'menu_url' => $restaurant->menu_url,
             ],
             'appearance' => [
-            'id' => $appearance?->id,
-            'restaurant_id' => $restaurant->id,
-            'logo' => $appearance?->logo,
-            'header_image' => $appearance?->header_image,
-            'background_image' => $appearance?->background_image,
-            'primary_color' => $appearance?->primary_color ?? '#D97706',
-            'secondary_color' => $appearance?->secondary_color ?? '#92400E',
-            'text_color' => $appearance?->text_color ?? '#1F2937',
-            'background_color' => $appearance?->background_color ?? '#FFFFFF',
-            'font_family' => $appearance?->font_family ?? 'Inter',
-        ],
-            'categories' => $restaurant->categories->map(fn ($category) => [
-                'id' => $category->id,
-                'name' => $category->name,
-                'image_url' => $category->image ? url('storage/'.$category->image) : null,
-            ]),
-            'meals' => $meals,
-            // 'tables' => $restaurant->tables()->orderBy('number')->get()->map(fn (RestaurantTable $table) => [
-            //     'id' => $table->id,
-            //     'name' => $table->name,
-            //     'number' => $table->number,
-            //     'status' => $table->status,
-
-            // ]),
+                'id' => $appearance?->id,
+                'restaurant_id' => $restaurant->id,
+                'logo' => $appearance?->logo,
+                'header_image' => $appearance?->header_image,
+                'background_image' => $appearance?->background_image,
+                'primary_color' => $appearance?->primary_color ?? '#D97706',
+                'secondary_color' => $appearance?->secondary_color ?? '#92400E',
+                'text_color' => $appearance?->text_color ?? '#1F2937',
+                'background_color' => $appearance?->background_color ?? '#FFFFFF',
+                'font_family' => $appearance?->font_family ?? 'Inter',
+            ],
+            'categories' => $categoryItems,
+            'meals' => $mealItems,
             'tables' => $restaurant->tables()
-            ->where('status', '!=', 'inactive')
-            ->orderBy('number')
-            ->get()
-            ->map(fn (RestaurantTable $table) => [
-                'number' => $table->number,
-                'qr_token' => $table->qr_token,
-            ]),
+                ->where('status', '!=', 'inactive')
+                ->orderBy('number')
+                ->get()
+                ->map(fn (RestaurantTable $table) => [
+                    'number' => $table->number,
+                    'qr_token' => $table->qr_token,
+                ]),
         ]);
     }
 
