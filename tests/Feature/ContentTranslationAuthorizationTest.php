@@ -290,6 +290,70 @@ class ContentTranslationAuthorizationTest extends TestCase
         });
     }
 
+
+    public function test_public_menu_refreshes_automatic_translations_when_source_text_changes(): void
+    {
+        config(['services.translation.url' => 'http://translation.test/translate']);
+        Http::fake(function ($request) {
+            return Http::response([
+                'translatedText' => 'FR '.$request['q'],
+                'detectedLanguage' => ['language' => 'en'],
+            ]);
+        });
+
+        [, $restaurant] = $this->createOwnerAndRestaurant('source-refresh');
+        $category = MenuCategory::create([
+            'restaurant_id' => $restaurant->id,
+            'name' => 'Desserts',
+            'description' => 'Sweet dishes',
+            'status' => 'active',
+        ]);
+        $meal = Meal::create([
+            'restaurant_id' => $restaurant->id,
+            'category_id' => $category->id,
+            'name' => 'Chocolate cake',
+            'description' => 'Dark chocolate',
+            'price' => 25,
+            'status' => 'active',
+            'featured' => false,
+        ]);
+
+        $this->getJson("/api/menu/{$restaurant->slug}?lang=fr")
+            ->assertOk()
+            ->assertJsonPath('restaurant.name', 'FR Restaurant source-refresh')
+            ->assertJsonPath('categories.0.name', 'FR Desserts')
+            ->assertJsonPath('meals.0.name', 'FR Chocolate cake');
+
+        $restaurant->update(['name' => 'Updated restaurant']);
+        $category->update(['name' => 'New desserts']);
+        $meal->update(['name' => 'Updated chocolate cake']);
+
+        $this->getJson("/api/menu/{$restaurant->slug}?lang=fr")
+            ->assertOk()
+            ->assertJsonPath('restaurant.name', 'FR Updated restaurant')
+            ->assertJsonPath('categories.0.name', 'FR New desserts')
+            ->assertJsonPath('meals.0.name', 'FR Updated chocolate cake');
+
+        $this->assertDatabaseHas('restaurant_translations', [
+            'restaurant_id' => $restaurant->id,
+            'language' => 'fr',
+            'name' => 'FR Updated restaurant',
+            'is_manual' => false,
+        ]);
+        $this->assertDatabaseHas('menu_category_translations', [
+            'menu_category_id' => $category->id,
+            'language' => 'fr',
+            'name' => 'FR New desserts',
+            'is_manual' => false,
+        ]);
+        $this->assertDatabaseHas('meal_translations', [
+            'meal_id' => $meal->id,
+            'language' => 'fr',
+            'name' => 'FR Updated chocolate cake',
+            'is_manual' => false,
+        ]);
+    }
+
     public function test_owner_can_delete_cleared_manual_translations_and_restore_auto_fallback(): void
     {
         [$owner, $restaurant] = $this->createOwnerAndRestaurant('delete-translations');
