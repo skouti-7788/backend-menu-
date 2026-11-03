@@ -38,28 +38,29 @@ class MenuController extends Controller
             ])
             ->firstOrFail();
 
-        // Translate restaurant name and description; operational/contact fields stay unchanged.
-        $restaurantTranslation = $restaurant->translations
-            ->firstWhere('language', $language);
+        // Translate restaurant content without overwriting manually edited translations.
+        $restaurantSource = [
+            'name' => $restaurant->name,
+            'description' => $restaurant->description ?? '',
+        ];
+        $restaurantHash = hash('sha256', json_encode($restaurantSource, JSON_UNESCAPED_UNICODE));
+        $restaurantTranslation = $restaurant->translations->firstWhere('language', $language);
 
-        if (! $restaurantTranslation) {
-            $translated = $translator->translateFields([
-                'name' => $restaurant->name,
-                'description' => $restaurant->description ?? '',
-            ], $language);
+        if (! $restaurantTranslation || (! $restaurantTranslation->is_manual && $restaurantTranslation->source_hash !== $restaurantHash)) {
+            $translated = $translator->translateFields($restaurantSource, $language);
+            $translationSucceeded = $translated !== $restaurantSource;
 
-            $restaurantTranslation = (
-                $translated['name'] === $restaurant->name
-                && $translated['description'] === ($restaurant->description ?? '')
-            )
-                ? new \App\Models\RestaurantTranslation([
-                    'language' => $language,
-                    ...$translated,
-                ])
-                : $restaurant->translations()->firstOrCreate(
-                    ['language' => $language],
-                    $translated
+            if ($translationSucceeded) {
+                $restaurantTranslation = $restaurant->translations()->updateOrCreate(
+                    ['language' => $language, 'is_manual' => false],
+                    [...$translated, 'source_hash' => $restaurantHash]
                 );
+            } elseif (! $restaurantTranslation) {
+                $restaurantTranslation = new \App\Models\RestaurantTranslation([
+                    'language' => $language,
+                    ...$restaurantSource,
+                ]);
+            }
         }
 
         $mealItems = $restaurant->meals->map(function ($meal) use ($language, $translator) {
@@ -77,27 +78,28 @@ class MenuController extends Controller
         });
 
         $categoryItems = $restaurant->categories->map(function ($category) use ($language, $translator) {
-            $translation = $category->translations
-                ->firstWhere('language', $language);
+            $categorySource = [
+                'name' => $category->name,
+                'description' => $category->description ?? '',
+            ];
+            $categoryHash = hash('sha256', json_encode($categorySource, JSON_UNESCAPED_UNICODE));
+            $translation = $category->translations->firstWhere('language', $language);
 
-            if (! $translation) {
-                $translated = $translator->translateFields([
-                    'name' => $category->name,
-                    'description' => $category->description ?? '',
-                ], $language);
+            if (! $translation || (! $translation->is_manual && $translation->source_hash !== $categoryHash)) {
+                $translated = $translator->translateFields($categorySource, $language);
+                $translationSucceeded = $translated !== $categorySource;
 
-                $translation = (
-                    $translated['name'] === $category->name
-                    && $translated['description'] === ($category->description ?? '')
-                )
-                    ? new \App\Models\MenuCategoryTranslation([
-                        'language' => $language,
-                        ...$translated,
-                    ])
-                    : $category->translations()->firstOrCreate(
-                        ['language' => $language],
-                        $translated
+                if ($translationSucceeded) {
+                    $translation = $category->translations()->updateOrCreate(
+                        ['language' => $language, 'is_manual' => false],
+                        [...$translated, 'source_hash' => $categoryHash]
                     );
+                } elseif (! $translation) {
+                    $translation = new \App\Models\MenuCategoryTranslation([
+                        'language' => $language,
+                        ...$categorySource,
+                    ]);
+                }
             }
 
             return [
