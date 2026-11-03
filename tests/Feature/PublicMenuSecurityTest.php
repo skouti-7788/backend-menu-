@@ -8,6 +8,7 @@ use App\Models\Restaurant;
 use App\Models\RestaurantTable;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class PublicMenuSecurityTest extends TestCase
@@ -517,6 +518,71 @@ class PublicMenuSecurityTest extends TestCase
 
         $response->assertJsonMissing([
             'name' => 'Hidden Category',
+        ]);
+    }
+
+    public function test_public_menu_translates_arabic_category_when_english_is_selected(): void
+    {
+        config([
+            'services.translation.url' => 'https://translation.test/get',
+            'services.translation.provider' => 'mymemory',
+            'services.translation.key' => null,
+        ]);
+
+        Http::fake(function ($request) {
+            $langpair = (string) ($request['langpair'] ?? '');
+            $target = str_contains($langpair, '|')
+                ? explode('|', $langpair, 2)[1]
+                : 'en';
+
+            $source = (string) ($request['q'] ?? '');
+
+            return Http::response([
+                'responseStatus' => 200,
+                'responseData' => [
+                    'translatedText' => $target === 'en' ? 'Starters' : 'Entrées',
+                    'detectedLanguage' => 'ar',
+                ],
+            ]);
+        });
+
+        $owner = User::create([
+            'name' => 'Arabic Category Owner',
+            'email' => 'arabic-category-owner@example.com',
+            'password' => bcrypt('secret123'),
+            'role' => 'restaurant_manager',
+        ]);
+
+        $restaurant = Restaurant::create([
+            'user_id' => $owner->id,
+            'name' => 'مطعم تجريبي',
+            'slug' => 'arabic-category-menu',
+        ]);
+
+        $category = MenuCategory::create([
+            'restaurant_id' => $restaurant->id,
+            'name' => 'المقبلات',
+            'description' => 'أطباق قبل الوجبة',
+            'status' => 'active',
+        ]);
+
+        $response = $this->getJson('/api/menu/'.$restaurant->slug.'?lang=en');
+
+        $response->assertOk();
+        $response->assertJsonPath('categories.0.id', $category->id);
+        $response->assertJsonPath('categories.0.name', 'Starters');
+        $response->assertJsonPath('categories.0.description', 'Starters');
+
+        $this->assertDatabaseHas('menu_categories', [
+            'id' => $category->id,
+            'name' => 'المقبلات',
+        ]);
+
+        $this->assertDatabaseHas('menu_category_translations', [
+            'menu_category_id' => $category->id,
+            'language' => 'en',
+            'name' => 'Starters',
+            'is_manual' => false,
         ]);
     }
 }
