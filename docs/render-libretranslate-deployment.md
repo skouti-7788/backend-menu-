@@ -58,7 +58,7 @@ In the Render environment settings for the Laravel API, add:
 ```dotenv
 TRANSLATION_PROVIDER=libretranslate
 TRANSLATION_API_URL=http://<private-service-hostname>:5000/translate
-TRANSLATION_API_KEY=
+TRANSLATION_API_KEY=<optional-private-provider-key>
 ```
 
 Replace the hostname with the actual private hostname shown by Render. Do not
@@ -75,7 +75,7 @@ Run these checks against the deployed Laravel API and a test restaurant:
 1. Request `GET /api/menu/<slug>?lang=en`, then repeat for `fr` and `ar`.
 2. Use source text in Arabic, French, and English across meal names and
    descriptions; verify each requested language.
-3. Confirm manually saved translations are returned unchanged.
+3. Confirm translations are generated automatically from the original content for each selected language.
 4. Confirm prices, phone numbers, addresses, opening hours, and links are
    identical across language requests.
 5. Temporarily make the provider unavailable in staging and confirm the menu
