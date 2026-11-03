@@ -100,6 +100,7 @@ class TranslationService
                     $status = (string) $response->json('responseStatus');
                     $result = $response->json('responseData.translatedText');
                     $detected = strtolower((string) $response->json('responseData.detectedLanguage', ''));
+                    $detected = explode('-', $detected)[0];
 
                     if (! $response->successful() || $status !== '200' || ! is_string($result) || trim($result) === '') {
                         $failed = true;
