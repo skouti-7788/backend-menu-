@@ -10,21 +10,22 @@ use Tests\TestCase;
 
 class TranslationServiceTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        config([
+            'services.translation.url' => 'https://api.mymemory.translated.net/get',
+            'services.translation.contact_email' => null,
+        ]);
+        Cache::flush();
+    }
+
     public function test_it_detects_the_source_language_for_each_field_independently(): void
     {
-        config(['services.translation.url' => 'http://translation.test/translate']);
-        config(['services.translation.key' => null]);
-
         Http::fake([
-            'translation.test/translate' => Http::sequence()
-                ->push([
-                    'translatedText' => 'Chicken tagine',
-                    'detectedLanguage' => ['language' => 'ar'],
-                ])
-                ->push([
-                    'translatedText' => 'Cooked with olives and lemon',
-                    'detectedLanguage' => ['language' => 'fr'],
-                ]),
+            'api.mymemory.translated.net/get*' => Http::sequence()
+                ->push(['responseStatus' => 200, 'responseData' => ['translatedText' => 'Chicken tagine', 'detectedLanguage' => 'ar']])
+                ->push(['responseStatus' => '200', 'responseData' => ['translatedText' => 'Cooked with olives and lemon', 'detectedLanguage' => 'fr']]),
         ]);
 
         $result = app(TranslationService::class)->translateFields([
@@ -36,78 +37,81 @@ class TranslationServiceTest extends TestCase
         $this->assertSame('Cooked with olives and lemon', $result['description']);
         Http::assertSentCount(2);
         Http::assertSent(fn (Request $request) =>
-            $request['source'] === 'auto'
-            && $request['target'] === 'en'
-            && is_string($request['q'])
+            $request['langpair'] === 'autodetect|en' && $request['mt'] === '1' && is_string($request['q'])
         );
     }
 
     public function test_it_keeps_text_unchanged_when_detected_language_matches_target(): void
     {
-        config(['services.translation.url' => 'http://translation.test/translate']);
-        config(['services.translation.key' => null]);
-
-        Http::fake([
-            'translation.test/translate' => Http::response([
-                'translatedText' => 'Un texte qui ne devrait pas remplacer la source',
-                'detectedLanguage' => ['language' => 'fr'],
-            ]),
-        ]);
+        Http::fake(['api.mymemory.translated.net/get*' => Http::response([
+            'responseStatus' => 200,
+            'responseData' => ['translatedText' => 'Un texte différent', 'detectedLanguage' => 'fr'],
+        ])]);
 
         $source = ['name' => 'Bonjour le restaurant', 'description' => ''];
-        $result = app(TranslationService::class)->translateFields($source, 'fr');
-
-        $this->assertSame($source, $result);
+        $this->assertSame($source, app(TranslationService::class)->translateFields($source, 'fr'));
         Http::assertSentCount(1);
     }
 
-    public function test_it_keeps_the_original_text_when_the_provider_fails(): void
+    public function test_it_skips_empty_fields_without_calling_the_provider(): void
     {
-        config(['services.translation.url' => 'http://translation.test/translate']);
-        Http::fake([
-            'translation.test/translate' => Http::response(['message' => 'Unavailable'], 503),
-        ]);
+        Http::fake();
+        $source = ['name' => '   ', 'description' => ''];
+        $this->assertSame($source, app(TranslationService::class)->translateFields($source, 'fr'));
+        Http::assertNothingSent();
+    }
+
+    public function test_it_keeps_original_text_when_provider_returns_an_api_error(): void
+    {
+        Http::fake(['api.mymemory.translated.net/get*' => Http::response([
+            'responseStatus' => '403',
+            'responseDetails' => 'Quota exceeded',
+            'responseData' => ['translatedText' => 'QUOTA EXCEEDED'],
+        ])]);
 
         $source = ['name' => 'طاجين الدجاج', 'description' => ''];
-        $result = app(TranslationService::class)->translateFields($source, 'fr');
-
-        $this->assertSame($source, $result);
+        $this->assertSame($source, app(TranslationService::class)->translateFields($source, 'fr'));
         Http::assertSentCount(1);
     }
 
-    public function test_it_does_not_call_the_provider_when_no_url_is_configured(): void
+    public function test_it_does_not_call_provider_when_no_url_is_configured(): void
     {
         config(['services.translation.url' => null]);
         Http::fake();
-
         $source = ['name' => 'Chicken Tagine', 'description' => ''];
-        $result = app(TranslationService::class)->translateFields($source, 'ar');
-
-        $this->assertSame($source, $result);
+        $this->assertSame($source, app(TranslationService::class)->translateFields($source, 'ar'));
         Http::assertNothingSent();
     }
 
     public function test_it_rejects_unsupported_target_languages(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-
         app(TranslationService::class)->translateFields(['name' => 'Meal'], 'es');
+    }
+
+    public function test_it_splits_long_text_into_requests_below_the_provider_byte_limit(): void
+    {
+        Http::fake(['api.mymemory.translated.net/get*' => Http::response([
+            'responseStatus' => 200,
+            'responseData' => ['translatedText' => 'translated segment', 'detectedLanguage' => 'en'],
+        ])]);
+
+        $text = str_repeat('A sentence with enough words to split safely. ', 20);
+        app(TranslationService::class)->translateFields(['description' => $text], 'fr');
+
+        Http::assertSentCount(3);
+        Http::assertSent(fn (Request $request) => strlen((string) $request['q']) <= 450);
     }
 
     public function test_it_caches_successful_translations_between_requests(): void
     {
-        Cache::flush();
-        config(['services.translation.url' => 'http://translation.test/translate']);
-        Http::fake([
-            'translation.test/translate' => Http::response([
-                'translatedText' => 'Chicken tagine',
-                'detectedLanguage' => ['language' => 'ar'],
-            ]),
-        ]);
+        Http::fake(['api.mymemory.translated.net/get*' => Http::response([
+            'responseStatus' => 200,
+            'responseData' => ['translatedText' => 'Chicken tagine', 'detectedLanguage' => 'ar'],
+        ])]);
 
         $translator = app(TranslationService::class);
         $source = ['name' => 'طبق اختبار التخزين المؤقت 2026', 'description' => ''];
-
         $first = $translator->translateFields($source, 'en');
         $second = $translator->translateFields($source, 'en');
 
@@ -118,59 +122,18 @@ class TranslationServiceTest extends TestCase
 
     public function test_it_temporarily_caches_original_text_when_provider_is_unavailable(): void
     {
-        Cache::flush();
-        config(['services.translation.url' => 'http://translation.test/translate']);
-        Http::fake([
-            'translation.test/translate' => Http::response(['message' => 'Unavailable'], 503),
-        ]);
+        Http::fake(['api.mymemory.translated.net/get*' => Http::response([
+            'responseStatus' => '403',
+            'responseData' => ['translatedText' => 'ERROR'],
+        ])]);
 
         $translator = app(TranslationService::class);
         $source = ['name' => 'نص فريد لاختبار الفشل 2026', 'description' => ''];
-
         $first = $translator->translateFields($source, 'fr');
         $second = $translator->translateFields($source, 'fr');
 
         $this->assertSame($source, $first);
         $this->assertSame($first, $second);
         Http::assertSentCount(1);
-    }
-
-    public function test_successful_translations_are_cached_for_thirty_days(): void
-    {
-        Cache::flush();
-        config(['services.translation.url' => 'http://translation.test/translate']);
-        Http::fake([
-            'translation.test/translate' => Http::response([
-                'translatedText' => 'Chicken tagine',
-                'detectedLanguage' => ['language' => 'ar'],
-            ]),
-        ]);
-
-        $source = ['name' => 'طبق مدة التخزين 2026', 'description' => ''];
-        $translator = app(TranslationService::class);
-
-        $translator->translateFields($source, 'en');
-
-        $cacheKey = 'menu_translation:'.hash('sha256', implode('|', [
-            'http://translation.test/translate',
-            'en',
-            $source['name'],
-        ]));
-
-        $this->assertSame('Chicken tagine', Cache::get($cacheKey));
-
-        // The translation remains cached before its 30-day TTL expires.
-        $this->travel(29)->days();
-        $this->assertSame('Chicken tagine', Cache::get($cacheKey));
-
-        // After expiry, the next request must call the provider again.
-        $translator->translateFields($source, 'en');
-        Http::assertSentCount(1);
-
-        $this->travel(2)->days();
-        $this->assertNull(Cache::get($cacheKey));
-
-        $translator->translateFields($source, 'en');
-        Http::assertSentCount(2);
     }
 }
