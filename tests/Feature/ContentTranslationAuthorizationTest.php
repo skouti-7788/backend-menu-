@@ -408,4 +408,65 @@ class ContentTranslationAuthorizationTest extends TestCase
         ]);
     }
 
+
+    public function test_public_menu_preserves_manual_restaurant_and_category_translations_after_source_changes(): void
+    {
+        config(['services.translation.url' => 'http://translation.test/translate']);
+        Http::fake(function ($request) {
+            return Http::response([
+                'translatedText' => 'AUTO '.$request['q'],
+                'detectedLanguage' => ['language' => 'en'],
+            ]);
+        });
+
+        [$owner, $restaurant] = $this->createOwnerAndRestaurant('manual-source-protection');
+        $category = MenuCategory::create([
+            'restaurant_id' => $restaurant->id,
+            'name' => 'Desserts',
+            'description' => 'Sweet dishes',
+            'status' => 'active',
+        ]);
+        $meal = Meal::create([
+            'restaurant_id' => $restaurant->id,
+            'category_id' => $category->id,
+            'name' => 'Chocolate cake',
+            'description' => 'Dark chocolate',
+            'price' => 25,
+            'status' => 'active',
+            'featured' => false,
+        ]);
+
+        $this->actingAs($owner)->putJson(
+            "/api/restaurants/{$restaurant->id}/translations/fr",
+            ['name' => 'Nom manuel du restaurant', 'description' => 'Description manuelle']
+        )->assertOk();
+        $this->actingAs($owner)->putJson(
+            "/api/restaurants/{$restaurant->id}/categories/{$category->id}/translations/fr",
+            ['name' => 'Desserts traduits manuellement', 'description' => 'Description de catégorie']
+        )->assertOk();
+
+        $restaurant->update(['name' => 'Changed restaurant source']);
+        $category->update(['name' => 'Changed category source']);
+
+        $this->getJson("/api/menu/{$restaurant->slug}?lang=fr")
+            ->assertOk()
+            ->assertJsonPath('restaurant.name', 'Nom manuel du restaurant')
+            ->assertJsonPath('restaurant.description', 'Description manuelle')
+            ->assertJsonPath('categories.0.name', 'Desserts traduits manuellement')
+            ->assertJsonPath('categories.0.description', 'Description de catégorie');
+
+        $this->assertDatabaseHas('restaurant_translations', [
+            'restaurant_id' => $restaurant->id,
+            'language' => 'fr',
+            'name' => 'Nom manuel du restaurant',
+            'is_manual' => true,
+        ]);
+        $this->assertDatabaseHas('menu_category_translations', [
+            'menu_category_id' => $category->id,
+            'language' => 'fr',
+            'name' => 'Desserts traduits manuellement',
+            'is_manual' => true,
+        ]);
+    }
+
 }
