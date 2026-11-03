@@ -16,10 +16,10 @@ permissions:
 
 jobs:
   migrate:
-    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.confirm == 'RUN') || (github.event_name == 'push' && contains(github.event.head_commit.message, '[RUN-AIVEN-MIGRATION]')) }}
+    if: ${{ github.ref == 'refs/heads/ops/run-aiven-migrations' && ((github.event_name == 'workflow_dispatch' && inputs.confirm == 'RUN') || (github.event_name == 'push' && contains(github.event.head_commit.message, '[RUN-AIVEN-MIGRATION]'))) }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
-
+    environment: production
     steps:
       - name: Check out this branch
         uses: actions/checkout@v4

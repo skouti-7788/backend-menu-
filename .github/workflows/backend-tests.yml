@@ -3,9 +3,10 @@ name: Backend tests
 on:
   push:
     branches:
-      - feature/automatic-multilingual-content
+      - integration/backend
   pull_request:
     branches:
+      - integration/backend
       - main
   workflow_dispatch:
 
