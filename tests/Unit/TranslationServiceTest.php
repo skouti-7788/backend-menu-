@@ -42,6 +42,25 @@ class TranslationServiceTest extends TestCase
         );
     }
 
+    public function test_it_keeps_text_unchanged_when_detected_language_matches_target(): void
+    {
+        config(['services.translation.url' => 'http://translation.test/translate']);
+        config(['services.translation.key' => null]);
+
+        Http::fake([
+            'translation.test/translate' => Http::response([
+                'translatedText' => 'Un texte qui ne devrait pas remplacer la source',
+                'detectedLanguage' => ['language' => 'fr'],
+            ]),
+        ]);
+
+        $source = ['name' => 'Bonjour le restaurant', 'description' => ''];
+        $result = app(TranslationService::class)->translateFields($source, 'fr');
+
+        $this->assertSame($source, $result);
+        Http::assertSentCount(1);
+    }
+
     public function test_it_keeps_the_original_text_when_the_provider_fails(): void
     {
         config(['services.translation.url' => 'http://translation.test/translate']);
