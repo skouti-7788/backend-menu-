@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\RestaurantAppearanceController;
 use App\Http\Controllers\Api\StaffController;
 use App\Http\Controllers\Api\PasswordController;
 use App\Http\Controllers\Api\ForgotPasswordController;
+use App\Http\Controllers\Api\PlanController;
 
 Route::prefix('auth')->group(function () {
     // throttle:6,1 => max 6 requests / minute per IP.
@@ -70,8 +71,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::apiResource('restaurants.tables', RestaurantTableController::class);
     Route::prefix('restaurants/{restaurant}')->group(function () {
         Route::delete('meals/all', [MealController::class, 'deleteAllMeals']);
-        Route::apiResource('categories', MenuCategoryController::class)->shallow();
-        Route::apiResource('meals', MealController::class)->shallow();
+        // Keep nested restaurant routes: controllers and dashboard clients
+        // use /restaurants/{restaurant}/categories/{category} and /meals/{meal}.
+        Route::apiResource('categories', MenuCategoryController::class);
+        Route::apiResource('meals', MealController::class);
         Route::apiResource('orders', OrderController::class)->shallow();
     });
     // Change password — authenticated user only
@@ -109,6 +112,16 @@ Route::middleware(['auth:sanctum'])->group(function () {
     );
 });
  
+// Public pricing catalogue.
+Route::get('plans', [PlanController::class, 'index']);
+
+// Subscription management is available to authenticated restaurant owners.
+Route::middleware('auth:sanctum')->prefix('subscription')->group(function () {
+    Route::get('/', [PlanController::class, 'current']);
+    Route::post('/', [PlanController::class, 'requestChange'])->middleware('throttle:5,1');
+    Route::post('/cancel', [PlanController::class, 'cancel'])->middleware('throttle:5,1');
+});
+
 Route::prefix('menu')->group(function () {
     // Public, unauthenticated routes: keep generous limits for real customers
     // but block scripted abuse (fake orders, analytics pollution).

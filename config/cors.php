@@ -14,7 +14,10 @@ return [
 
     ],
 
-    'allowed_origins_patterns' => [],
+    'allowed_origins_patterns' => [
+        // Vercel preview deployments for the public Menu Online frontend.
+        '#^https://menuonlinesr02-[a-z0-9-]+-skouti-7788s-projects\\.vercel\\.app$#',
+    ],
 
     'allowed_headers' => ['*'],
 

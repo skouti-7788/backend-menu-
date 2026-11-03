@@ -30,10 +30,30 @@ class PublicMenuSecurityTest extends TestCase
             'slug' => 'alpha-bistro',
         ]);
 
+        // Public menu fixtures use the paid table/order feature set.
+        $restaurantA->subscriptions()->create([
+            'plan' => 'business',
+            'billing_interval' => 'monthly',
+            'status' => 'active',
+            'amount' => 199,
+            'currency' => 'MAD',
+            'starts_at' => now(),
+        ]);
+
         $restaurantB = Restaurant::create([
             'user_id' => $owner->id,
             'name' => 'Beta Bistro',
             'slug' => 'beta-bistro',
+        ]);
+
+        // Public menu fixtures use the paid table/order feature set.
+        $restaurantB->subscriptions()->create([
+            'plan' => 'business',
+            'billing_interval' => 'monthly',
+            'status' => 'active',
+            'amount' => 199,
+            'currency' => 'MAD',
+            'starts_at' => now(),
         ]);
 
         $restaurantATable = RestaurantTable::create([
@@ -75,6 +95,16 @@ class PublicMenuSecurityTest extends TestCase
             'slug' => 'gamma-bistro',
         ]);
 
+        // Public menu fixtures use the paid table/order feature set.
+        $restaurant->subscriptions()->create([
+            'plan' => 'business',
+            'billing_interval' => 'monthly',
+            'status' => 'active',
+            'amount' => 199,
+            'currency' => 'MAD',
+            'starts_at' => now(),
+        ]);
+
         $table = RestaurantTable::create([
             'restaurant_id' => $restaurant->id,
             'name' => 'Table 9',
@@ -105,10 +135,30 @@ class PublicMenuSecurityTest extends TestCase
             'slug' => 'alpha-kitchen',
         ]);
 
+        // Public menu fixtures use the paid table/order feature set.
+        $restaurantA->subscriptions()->create([
+            'plan' => 'business',
+            'billing_interval' => 'monthly',
+            'status' => 'active',
+            'amount' => 199,
+            'currency' => 'MAD',
+            'starts_at' => now(),
+        ]);
+
         $restaurantB = Restaurant::create([
             'user_id' => $owner->id,
             'name' => 'Beta Kitchen',
             'slug' => 'beta-kitchen',
+        ]);
+
+        // Public menu fixtures use the paid table/order feature set.
+        $restaurantB->subscriptions()->create([
+            'plan' => 'business',
+            'billing_interval' => 'monthly',
+            'status' => 'active',
+            'amount' => 199,
+            'currency' => 'MAD',
+            'starts_at' => now(),
         ]);
 
         $categoryA = MenuCategory::create([
@@ -182,6 +232,16 @@ class PublicMenuSecurityTest extends TestCase
             'slug' => 'delta-kitchen',
         ]);
 
+        // Public menu fixtures use the paid table/order feature set.
+        $restaurant->subscriptions()->create([
+            'plan' => 'business',
+            'billing_interval' => 'monthly',
+            'status' => 'active',
+            'amount' => 199,
+            'currency' => 'MAD',
+            'starts_at' => now(),
+        ]);
+
         $category = MenuCategory::create([
             'restaurant_id' => $restaurant->id,
             'name' => 'Lunch',
@@ -231,6 +291,16 @@ class PublicMenuSecurityTest extends TestCase
             'user_id' => $owner->id,
             'name' => 'Public Order Bistro',
             'slug' => 'public-order-bistro',
+        ]);
+
+        // Public menu fixtures use the paid table/order feature set.
+        $restaurant->subscriptions()->create([
+            'plan' => 'business',
+            'billing_interval' => 'monthly',
+            'status' => 'active',
+            'amount' => 199,
+            'currency' => 'MAD',
+            'starts_at' => now(),
         ]);
 
         $category = MenuCategory::create([
@@ -313,6 +383,16 @@ class PublicMenuSecurityTest extends TestCase
             'slug' => 'language-bistro',
         ]);
 
+        // Public menu fixtures use the paid table/order feature set.
+        $restaurant->subscriptions()->create([
+            'plan' => 'business',
+            'billing_interval' => 'monthly',
+            'status' => 'active',
+            'amount' => 199,
+            'currency' => 'MAD',
+            'starts_at' => now(),
+        ]);
+
         $response = $this->getJson(
             '/api/menu/' . $restaurant->slug . '?lang=de'
         );
@@ -334,6 +414,16 @@ class PublicMenuSecurityTest extends TestCase
             'user_id' => $owner->id,
             'name' => 'View Bistro',
             'slug' => 'view-bistro',
+        ]);
+
+        // Public menu fixtures use the paid table/order feature set.
+        $restaurant->subscriptions()->create([
+            'plan' => 'business',
+            'billing_interval' => 'monthly',
+            'status' => 'active',
+            'amount' => 199,
+            'currency' => 'MAD',
+            'starts_at' => now(),
         ]);
 
         $response = $this->postJson(
@@ -363,6 +453,16 @@ class PublicMenuSecurityTest extends TestCase
             'slug' => 'analytics-bistro',
         ]);
 
+        // Public menu fixtures use the paid table/order feature set.
+        $restaurant->subscriptions()->create([
+            'plan' => 'business',
+            'billing_interval' => 'monthly',
+            'status' => 'active',
+            'amount' => 199,
+            'currency' => 'MAD',
+            'starts_at' => now(),
+        ]);
+
         $response = $this->postJson(
             '/api/menu/' . $restaurant->slug . '/view?lang=fr'
         );
@@ -390,6 +490,16 @@ class PublicMenuSecurityTest extends TestCase
             'user_id' => $owner->id,
             'name' => 'Meal View Bistro',
             'slug' => 'meal-view-bistro',
+        ]);
+
+        // Public menu fixtures use the paid table/order feature set.
+        $restaurant->subscriptions()->create([
+            'plan' => 'business',
+            'billing_interval' => 'monthly',
+            'status' => 'active',
+            'amount' => 199,
+            'currency' => 'MAD',
+            'starts_at' => now(),
         ]);
 
         $category = MenuCategory::create([
@@ -440,10 +550,30 @@ class PublicMenuSecurityTest extends TestCase
             'slug' => 'view-alpha',
         ]);
 
+        // Public menu fixtures use the paid table/order feature set.
+        $restaurantA->subscriptions()->create([
+            'plan' => 'business',
+            'billing_interval' => 'monthly',
+            'status' => 'active',
+            'amount' => 199,
+            'currency' => 'MAD',
+            'starts_at' => now(),
+        ]);
+
         $restaurantB = Restaurant::create([
             'user_id' => $owner->id,
             'name' => 'View Beta',
             'slug' => 'view-beta',
+        ]);
+
+        // Public menu fixtures use the paid table/order feature set.
+        $restaurantB->subscriptions()->create([
+            'plan' => 'business',
+            'billing_interval' => 'monthly',
+            'status' => 'active',
+            'amount' => 199,
+            'currency' => 'MAD',
+            'starts_at' => now(),
         ]);
 
         $categoryB = MenuCategory::create([
@@ -490,6 +620,16 @@ class PublicMenuSecurityTest extends TestCase
             'user_id' => $owner->id,
             'name' => 'Category Bistro',
             'slug' => 'category-bistro',
+        ]);
+
+        // Public menu fixtures use the paid table/order feature set.
+        $restaurant->subscriptions()->create([
+            'plan' => 'business',
+            'billing_interval' => 'monthly',
+            'status' => 'active',
+            'amount' => 199,
+            'currency' => 'MAD',
+            'starts_at' => now(),
         ]);
 
         $activeCategory = MenuCategory::create([

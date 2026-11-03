@@ -76,7 +76,7 @@ class RestaurantController extends Controller
          * restaurant and must never be able to spin up new ones.
          */
         if (! $user->isAdmin() && ! $user->isOwner() && ! $user->isRestaurantManager()) {
-            abort(403, 'You are not authorized to create a restaurant.');
+            abort(403, __('messages.restaurant_create_forbidden'));
         }
 
         $data = $request
@@ -216,7 +216,7 @@ class RestaurantController extends Controller
 
         return response()->json([
             'message' =>
-                'Restaurant deleted successfully.'
+                __('messages.restaurant_deleted')
         ]);
     }
 
@@ -232,7 +232,7 @@ class RestaurantController extends Controller
         if (! $user) {
             abort(
                 401,
-                'Unauthenticated.'
+                __('messages.unauthenticated')
             );
         }
 
@@ -271,7 +271,7 @@ class RestaurantController extends Controller
 
         abort(
             403,
-            'You are not authorized to access this restaurant.'
+            __('messages.restaurant_access_forbidden')
         );
     }
 

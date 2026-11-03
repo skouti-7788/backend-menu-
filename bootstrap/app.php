@@ -5,6 +5,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\HandleCors;
 use App\Http\Middleware\SecurityHeaders;
+use App\Http\Middleware\SetApiLocale;
 use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -17,6 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->append(HandleCors::class);
+        $middleware->append(SetApiLocale::class);
         $middleware->append(SecurityHeaders::class);
 
         $middleware->redirectGuestsTo(function (Request $request) {
@@ -32,13 +34,25 @@ return Application::configure(basePath: dirname(__DIR__))
             fn (Request $request) => $request->is('api/*'),
         );
 
+        $exceptions->render(function (\Illuminate\Auth\AuthenticationException $e, Request $request) {
+            if ($request->is('api/*')) {
+                return response()->json(['message' => __('messages.unauthenticated')], 401);
+            }
+        });
+
+        $exceptions->render(function (\Illuminate\Auth\Access\AuthorizationException $e, Request $request) {
+            if ($request->is('api/*')) {
+                return response()->json(['message' => __('messages.forbidden')], 403);
+            }
+        });
+
         $exceptions->render(function (
             \Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e,
             Request $request
         ) {
             if ($request->is('api/*')) {
                 return response()->json([
-                    'message' => 'Resource not found.',
+                    'message' => __('messages.resource_not_found'),
                 ], 404);
             }
         });

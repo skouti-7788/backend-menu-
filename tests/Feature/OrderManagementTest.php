@@ -16,7 +16,7 @@ class OrderManagementTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function makeRestaurantWithOwner(string $suffix): array
+    private function makeRestaurantWithOwner(string $suffix, ?string $plan = 'business'): array
     {
         $owner = User::create([
             'name' => "Owner {$suffix}",
@@ -33,6 +33,17 @@ class OrderManagementTest extends TestCase
 
         $owner->restaurant_id = $restaurant->id;
         $owner->save();
+
+        if ($plan !== null) {
+            $restaurant->subscriptions()->create([
+                'plan' => $plan,
+                'billing_interval' => 'monthly',
+                'status' => 'active',
+                'amount' => $plan === 'business' ? 199 : 99,
+                'currency' => 'MAD',
+                'starts_at' => now(),
+            ]);
+        }
 
         return [$owner, $restaurant];
     }
@@ -509,4 +520,29 @@ class OrderManagementTest extends TestCase
             'total' => 40.33,
         ]);
     }
+    public function test_starter_plan_blocks_dashboard_order_creation_with_upgrade_error(): void
+    {
+        [$owner, $restaurant] = $this->makeRestaurantWithOwner('starter-orders', null);
+        $meal = $this->makeMeal($restaurant);
+
+        $this->actingAs($owner, 'sanctum')
+            ->postJson("/api/restaurants/{$restaurant->id}/orders", [
+                'customer_name' => 'Starter Customer',
+                'phone' => '0600000000',
+                'address' => 'Table 1',
+                'items' => [
+                    ['meal_id' => $meal->id, 'quantity' => 1],
+                ],
+            ])
+            ->assertForbidden()
+            ->assertJsonPath('code', 'PLAN_FEATURE_LOCKED')
+            ->assertJsonPath('feature', 'orders')
+            ->assertJsonPath('required_plan', 'pro');
+
+        $this->assertDatabaseMissing('orders', [
+            'restaurant_id' => $restaurant->id,
+            'customer_name' => 'Starter Customer',
+        ]);
+    }
+
 }

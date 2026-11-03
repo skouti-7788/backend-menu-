@@ -45,6 +45,12 @@ class MenuCategoryController extends Controller
             'categories.add'
         );
 
+        app(\App\Services\PlanEnforcer::class)->assertLimit(
+            $restaurant,
+            'categories',
+            $restaurant->categories()->count()
+        );
+
         $data = $request
             ->safe()
             ->except(['image']);
@@ -247,7 +253,7 @@ class MenuCategoryController extends Controller
 
         return response()->json([
             'message' =>
-                'Menu category removed successfully.'
+                __('messages.category_deleted')
         ]);
     }
 

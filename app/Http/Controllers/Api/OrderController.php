@@ -28,6 +28,7 @@ class OrderController extends Controller
             $restaurant,
             'orders.view'
         );
+        app(\App\Services\PlanEnforcer::class)->assertFeature($restaurant, 'orders');
 
         $orders = $restaurant
             ->orders()
@@ -61,6 +62,7 @@ class OrderController extends Controller
             $restaurant,
             'orders.add'
         );
+        app(\App\Services\PlanEnforcer::class)->assertFeature($restaurant, 'orders');
 
         $items = collect($request->input('items', []));
 
@@ -168,6 +170,7 @@ class OrderController extends Controller
             $order->restaurant,
             'orders.view'
         );
+        app(\App\Services\PlanEnforcer::class)->assertFeature($order->restaurant, 'orders');
 
         return new OrderResource(
             $order->load([
@@ -191,6 +194,7 @@ class OrderController extends Controller
             $order->restaurant,
             'orders.update'
         );
+        app(\App\Services\PlanEnforcer::class)->assertFeature($order->restaurant, 'orders');
 
         $validated =
             $request->validate([
@@ -259,6 +263,7 @@ class OrderController extends Controller
             $order->restaurant,
             'orders.delete'
         );
+        app(\App\Services\PlanEnforcer::class)->assertFeature($order->restaurant, 'orders');
 
         /**
          * Keep table reference BEFORE
@@ -303,7 +308,7 @@ class OrderController extends Controller
 
         return response()->json([
             'message' =>
-                'Order deleted successfully.',
+                __('messages.order_deleted'),
         ]);
     }
 
@@ -321,6 +326,7 @@ class OrderController extends Controller
             $order->restaurant,
             'orders.update'
         );
+        app(\App\Services\PlanEnforcer::class)->assertFeature($order->restaurant, 'orders');
 
         $validated =
             $request->validate([

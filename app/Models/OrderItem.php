@@ -31,6 +31,6 @@ class OrderItem extends Model
 
     public function meal()
     {
-        return $this->belongsTo(Meal::class);
+        return $this->belongsTo(Meal::class)->withTrashed();
     }
 }

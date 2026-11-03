@@ -141,20 +141,25 @@ class MenuController extends Controller
             ],
             'categories' => $categoryItems,
             'meals' => $mealItems,
-            'tables' => $restaurant->tables()
-                ->where('status', '!=', 'inactive')
-                ->orderBy('number')
-                ->get()
-                ->map(fn (RestaurantTable $table) => [
-                    'id' => $table->id,
-                    'number' => $table->number,
-                ]),
+            'tables' => app(\App\Services\PlanEnforcer::class)->hasFeature($restaurant, 'tables')
+                ? $restaurant->tables()
+                    ->where('status', '!=', 'inactive')
+                    ->orderBy('number')
+                    ->get()
+                    ->map(fn (RestaurantTable $table) => [
+                        'id' => $table->id,
+                        'name' => $table->name,
+                        'number' => $table->number,
+                        'status' => $table->status,
+                    ])
+                : [],
         ]);
     }
 
     public function storeOrder(OrderRequest $request, string $slug): JsonResponse
     {
         $restaurant = Restaurant::where('slug', $slug)->firstOrFail();
+        app(\App\Services\PlanEnforcer::class)->assertFeature($restaurant, 'orders');
 
         $items = collect($request->input('items', []));
 
@@ -248,7 +253,7 @@ class MenuController extends Controller
         $taxCents = (int) round($subtotalCents * 0.09);
 
         return response()->json([
-            'message' => 'Order created successfully',
+            'message' => __('messages.order_created'),
             'order' => [
                 'id' => $order->id,
                 'restaurant_id' => $order->restaurant_id,
@@ -312,7 +317,7 @@ class MenuController extends Controller
                 ->exists()
         ) {
             return response()->json([
-                'message' => 'The selected meal is not available for this restaurant.',
+                'message' => __('messages.meal_unavailable'),
             ], 422);
         }
 
@@ -325,7 +330,7 @@ class MenuController extends Controller
         ]);
 
         return response()->json([
-            'message' => 'View recorded.',
+            'message' => __('messages.view_recorded'),
         ]);
     }
 }

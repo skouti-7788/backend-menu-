@@ -19,6 +19,7 @@ class RestaurantTableController extends Controller
             $restaurant,
             'tables.view'
         );
+        app(\App\Services\PlanEnforcer::class)->assertFeature($restaurant, 'tables');
 
         $tables = $restaurant->tables()
             ->orderBy('number')
@@ -38,6 +39,8 @@ class RestaurantTableController extends Controller
             $restaurant,
             'tables.add'
         );
+        app(\App\Services\PlanEnforcer::class)->assertFeature($restaurant, 'tables');
+
 
         $validated = $request->validate([
             'number' => [
@@ -62,7 +65,7 @@ class RestaurantTableController extends Controller
         ]);
 
         return response()->json([
-            'message' => 'Table created successfully.',
+            'message' => __('messages.table_created'),
             'table' => $table,
         ], 201);
     }
@@ -78,6 +81,7 @@ class RestaurantTableController extends Controller
             $restaurant,
             'tables.add'
         );
+        app(\App\Services\PlanEnforcer::class)->assertFeature($restaurant, 'tables');
 
         $validated = $request->validate([
             'count' => [
@@ -118,7 +122,7 @@ class RestaurantTableController extends Controller
         });
 
         return response()->json([
-            'message' => 'Tables created successfully.',
+            'message' => __('messages.tables_created'),
             'tables' => $tables,
         ], 201);
     }
@@ -134,6 +138,7 @@ class RestaurantTableController extends Controller
             $restaurant,
             'tables.view'
         );
+        app(\App\Services\PlanEnforcer::class)->assertFeature($restaurant, 'tables');
 
         $this->authorizeTable(
             $restaurant,
@@ -155,6 +160,7 @@ class RestaurantTableController extends Controller
             $restaurant,
             'tables.update'
         );
+        app(\App\Services\PlanEnforcer::class)->assertFeature($restaurant, 'tables');
 
         $this->authorizeTable(
             $restaurant,
@@ -192,7 +198,7 @@ class RestaurantTableController extends Controller
         ]);
 
         return response()->json([
-            'message' => 'Table updated successfully.',
+            'message' => __('messages.table_updated'),
             'table' => $table->fresh(),
         ]);
     }
@@ -208,6 +214,7 @@ class RestaurantTableController extends Controller
             $restaurant,
             'tables.delete'
         );
+        app(\App\Services\PlanEnforcer::class)->assertFeature($restaurant, 'tables');
 
         $this->authorizeTable(
             $restaurant,
@@ -217,7 +224,7 @@ class RestaurantTableController extends Controller
         $table->delete();
 
         return response()->json([
-            'message' => 'Table deleted successfully.',
+            'message' => __('messages.table_deleted'),
         ]);
     }
 
@@ -238,6 +245,7 @@ class RestaurantTableController extends Controller
             $restaurant,
             'tables.delete'
         );
+        app(\App\Services\PlanEnforcer::class)->assertFeature($restaurant, 'tables');
 
         $count = $restaurant
             ->tables()
@@ -248,7 +256,7 @@ class RestaurantTableController extends Controller
             ->delete();
 
         return response()->json([
-            'message' => 'All tables deleted successfully.',
+            'message' => __('messages.tables_deleted'),
             'deleted_count' => $count,
         ]);
     }
@@ -263,7 +271,7 @@ class RestaurantTableController extends Controller
         if ((int) $table->restaurant_id !== (int) $restaurant->id) {
             abort(
                 403,
-                'This table does not belong to this restaurant.'
+                __('messages.table_wrong_restaurant')
             );
         }
     }

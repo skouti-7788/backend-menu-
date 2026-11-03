@@ -43,6 +43,12 @@ class MealController extends Controller
             'meals.add'
         );
 
+        app(\App\Services\PlanEnforcer::class)->assertLimit(
+            $restaurant,
+            'meals',
+            $restaurant->meals()->count()
+        );
+
         $data = $request
             ->safe()
             ->except(['image']);
@@ -164,15 +170,17 @@ class MealController extends Controller
 
             'meals' => $meals,
 
-            'tables' => $restaurant->tables()
-                ->orderBy('number')
-                ->get()
-                ->map(fn (RestaurantTable $table) => [
-                    'id' => $table->id,
-                    'name' => $table->name,
-                    'number' => $table->number,
-                    'status' => $table->status,
-                ]),
+            'tables' => app(\App\Services\PlanEnforcer::class)->hasFeature($restaurant, 'tables')
+                ? $restaurant->tables()
+                    ->orderBy('number')
+                    ->get()
+                    ->map(fn (RestaurantTable $table) => [
+                        'id' => $table->id,
+                        'name' => $table->name,
+                        'number' => $table->number,
+                        'status' => $table->status,
+                    ])
+                : [],
         ]);
     }     
 
@@ -288,7 +296,7 @@ class MealController extends Controller
     //     );
 
     //     return response()->json([
-    //         'message' => 'Meal deleted successfully.',
+    //         'message' => __('messages.meal_deleted'),
     //     ]);
     // }
     public function destroy(
@@ -306,12 +314,11 @@ class MealController extends Controller
             $restaurant
         );
 
-        $meal->update([
-            'status' => MealStatus::INACTIVE,
-        ]);
+        // Deactivate the meal while preserving its record and order history.
+        $meal->update(['status' => MealStatus::INACTIVE]);
 
         return response()->json([
-            'message' => 'Meal deleted successfully.',
+            'message' => __('messages.meal_deleted'),
         ]);
     }
     // public function deleteAllMeals(
@@ -355,7 +362,7 @@ class MealController extends Controller
     //     }
 
     //     return response()->json([
-    //         'message' => 'All meals deleted successfully.',
+    //         'message' => __('messages.meals_deleted'),
     //     ]);
     // }
     public function deleteAllMeals(
@@ -367,14 +374,11 @@ class MealController extends Controller
             'meals.delete'
         );
 
-        $restaurant
-            ->meals()
-            ->update([
-                'status' => MealStatus::INACTIVE,
-            ]);
+        // Deactivate all meals while preserving records referenced by order history.
+        $restaurant->meals()->update(['status' => MealStatus::INACTIVE]);
 
         return response()->json([
-            'message' => 'All meals deleted successfully.',
+            'message' => __('messages.meals_deleted'),
         ]);
     }
     /*
@@ -397,7 +401,7 @@ class MealController extends Controller
             (int) $meal->restaurant_id !==
             (int) $restaurant->id
         ) {
-            abort(404, 'Meal not found.');
+            abort(404, __('messages.meal_not_found'));
         }
     }
 

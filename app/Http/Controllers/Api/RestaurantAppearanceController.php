@@ -59,6 +59,21 @@ class RestaurantAppearanceController extends Controller
             'appearance.update'
         );
 
+        $plan = app(\App\Services\PlanEnforcer::class)->planFor($restaurant);
+        if (data_get($plan, 'features.appearance') !== 'advanced') {
+            $request->validate([
+                'primary_color' => ['prohibited'],
+                'secondary_color' => ['prohibited'],
+                'text_color' => ['prohibited'],
+                'background_color' => ['prohibited'],
+                'font_family' => ['prohibited'],
+                'header_image' => ['prohibited'],
+                'background_image' => ['prohibited'],
+                'remove_header_image' => ['prohibited'],
+                'remove_background_image' => ['prohibited'],
+            ]);
+        }
+
         $validated = $request->validate([
             'logo' => [
                 'nullable',
@@ -275,7 +290,7 @@ class RestaurantAppearanceController extends Controller
 
                     throw ValidationException::withMessages([
                         $field => [
-                            'The image could not be uploaded. Please try another file.',
+                            __('messages.image_upload_failed'),
                         ],
                     ]);
                 }
@@ -305,7 +320,7 @@ class RestaurantAppearanceController extends Controller
             $appearance->save();
         }
         return response()->json([
-            'message' => 'Appearance updated successfully.',
+            'message' => __('messages.appearance_updated'),
             'appearance' => $appearance->fresh(),
         ]);
     }

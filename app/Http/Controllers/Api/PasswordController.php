@@ -31,10 +31,10 @@ class PasswordController extends Controller
             $user->password
         )) {
             return response()->json([
-                'message' => 'Le mot de passe actuel est incorrect.',
+                'message' => __('messages.current_password_incorrect'),
                 'errors' => [
                     'current_password' => [
-                        'Le mot de passe actuel est incorrect.',
+                        __('messages.current_password_incorrect'),
                     ],
                 ],
             ], 422);
@@ -47,7 +47,7 @@ class PasswordController extends Controller
         ])->save();
 
         return response()->json([
-            'message' => 'Mot de passe modifié avec succès.',
+            'message' => __('messages.password_updated'),
         ]);
     }
 }

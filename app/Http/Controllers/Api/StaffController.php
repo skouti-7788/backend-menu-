@@ -24,6 +24,7 @@ class StaffController extends Controller
         $restaurant = $this->resolveRestaurantForUser($request);
  
         $this->requirePermission($restaurant, 'staff.view');
+        app(\App\Services\PlanEnforcer::class)->assertFeature($restaurant, 'staff');
  
         $staff = User::query()
             ->where('restaurant_id', $restaurant->id)
@@ -54,6 +55,7 @@ class StaffController extends Controller
         $restaurant = $this->resolveRestaurantForUser($request);
  
         $this->requirePermission($restaurant, 'staff.add');
+        app(\App\Services\PlanEnforcer::class)->assertFeature($restaurant, 'staff');
  
         $allowedPermissions = $this->allowedPermissionsList();
  
@@ -112,7 +114,7 @@ class StaffController extends Controller
             if ($disallowed->isNotEmpty()) {
                 abort(
                     403,
-                    'You cannot grant permissions you do not have yourself: ' . $disallowed->implode(', ')
+                    __('messages.cannot_grant_permissions') . ' ' . $disallowed->implode(', ')
                 );
             }
         }
@@ -166,7 +168,7 @@ class StaffController extends Controller
         ]);
  
         return response()->json([
-            'message' => 'Staff member created successfully.',
+            'message' => __('messages.staff_created'),
             'staff' => [
                 'id' => $staff->id,
                 'name' => $staff->name,
@@ -191,6 +193,7 @@ class StaffController extends Controller
         $restaurant = $this->resolveRestaurantForUser($request);
  
         $this->requirePermission($restaurant, 'staff.delete');
+        app(\App\Services\PlanEnforcer::class)->assertFeature($restaurant, 'staff');
  
         $this->ensureStaffBelongsToRestaurant(
             $staff,
@@ -214,7 +217,7 @@ class StaffController extends Controller
         });
  
         return response()->json([
-            'message' => 'Staff member deleted successfully.',
+            'message' => __('messages.staff_deleted'),
         ]);
     }
  
@@ -228,6 +231,7 @@ class StaffController extends Controller
         $restaurant = $this->resolveRestaurantForUser($request);
  
         $this->requirePermission($restaurant, 'staff.view');
+        app(\App\Services\PlanEnforcer::class)->assertFeature($restaurant, 'staff');
  
         $this->ensureStaffBelongsToRestaurant(
             $staff,
@@ -255,6 +259,7 @@ class StaffController extends Controller
         $restaurant = $this->resolveRestaurantForUser($request);
  
         $this->requirePermission($restaurant, 'staff.update');
+        app(\App\Services\PlanEnforcer::class)->assertFeature($restaurant, 'staff');
  
         $this->ensureStaffBelongsToRestaurant(
             $staff,
@@ -292,7 +297,7 @@ class StaffController extends Controller
             if ($disallowed->isNotEmpty()) {
                 abort(
                     403,
-                    'You cannot grant permissions you do not have yourself: ' . $disallowed->implode(', ')
+                    __('messages.cannot_grant_permissions') . ' ' . $disallowed->implode(', ')
                 );
             }
         }
@@ -346,7 +351,7 @@ class StaffController extends Controller
         });
  
         return response()->json([
-            'message' => 'Permissions updated successfully.',
+            'message' => __('messages.permissions_updated'),
             'permissions' => $permissions,
         ]);
     }
@@ -365,7 +370,7 @@ class StaffController extends Controller
         ) {
             abort(
                 404,
-                'Staff member not found.'
+                __('messages.staff_not_found')
             );
         }
     }

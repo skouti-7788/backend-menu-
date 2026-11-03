@@ -1,0 +1,98 @@
+name: Run targeted Aiven migration
+
+on:
+  push:
+    branches:
+      - ops/run-aiven-migrations
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type RUN to apply the restaurant_subscriptions migration to Aiven'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.confirm == 'RUN') || (github.event_name == 'push' && contains(github.event.head_commit.message, '[RUN-AIVEN-MIGRATION]')) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out this branch
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, pdo_mysql, bcmath, curl, fileinfo, openssl, tokenizer, xml, ctype, json
+          tools: composer:v2
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Configure Aiven connection
+        env:
+          AIVEN_DB_HOST: ${{ secrets.AIVEN_DB_HOST }}
+          AIVEN_DB_PORT: ${{ secrets.AIVEN_DB_PORT }}
+          AIVEN_DB_DATABASE: ${{ secrets.AIVEN_DB_DATABASE }}
+          AIVEN_DB_USERNAME: ${{ secrets.AIVEN_DB_USERNAME }}
+          AIVEN_DB_PASSWORD: ${{ secrets.AIVEN_DB_PASSWORD }}
+          AIVEN_CA_CERT: ${{ secrets.AIVEN_CA_CERT }}
+        run: |
+          test -n "$AIVEN_DB_HOST"
+          test -n "$AIVEN_DB_PORT"
+          test -n "$AIVEN_DB_DATABASE"
+          test -n "$AIVEN_DB_USERNAME"
+          test -n "$AIVEN_DB_PASSWORD"
+          test -n "$AIVEN_CA_CERT"
+          printf '%s\n' "$AIVEN_CA_CERT" > "$RUNNER_TEMP/aiven-ca.pem"
+          chmod 600 "$RUNNER_TEMP/aiven-ca.pem"
+          {
+            echo "DB_CONNECTION=mysql"
+            echo "DB_HOST=$AIVEN_DB_HOST"
+            echo "DB_PORT=$AIVEN_DB_PORT"
+            echo "DB_DATABASE=$AIVEN_DB_DATABASE"
+            echo "DB_USERNAME=$AIVEN_DB_USERNAME"
+            echo "DB_PASSWORD=$AIVEN_DB_PASSWORD"
+            echo "MYSQL_ATTR_SSL_CA=$RUNNER_TEMP/aiven-ca.pem"
+          } >> "$GITHUB_ENV"
+
+      - name: Check target migration and database prerequisites
+        run: |
+          test -f database/migrations/2026_11_01_000001_create_restaurant_subscriptions_table.php
+          php -r '
+          require "vendor/autoload.php";
+          $app = require "bootstrap/app.php";
+          $kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
+          $kernel->bootstrap();
+          if (!Illuminate\Support\Facades\Schema::hasTable("restaurants")) {
+              fwrite(STDERR, "Required table restaurants is missing; stopping without applying the migration.\n");
+              exit(1);
+          }
+          if (Illuminate\Support\Facades\Schema::hasTable("restaurant_subscriptions")) {
+              fwrite(STDERR, "restaurant_subscriptions already exists; stopping without changing it.\n");
+              exit(1);
+          }
+          echo "Database prerequisites verified.\n";
+          '
+
+      - name: Apply only restaurant_subscriptions migration
+        run: php artisan migrate --path=database/migrations/2026_11_01_000001_create_restaurant_subscriptions_table.php --force
+
+      - name: Verify table exists
+        run: |
+          php -r '
+          require "vendor/autoload.php";
+          $app = require "bootstrap/app.php";
+          $kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
+          $kernel->bootstrap();
+          if (!Illuminate\Support\Facades\Schema::hasTable("restaurant_subscriptions")) {
+              fwrite(STDERR, "Verification failed: table was not found.\n");
+              exit(1);
+          }
+          echo "Verified: restaurant_subscriptions exists.\n";
+          '

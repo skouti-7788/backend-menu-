@@ -13,7 +13,7 @@ class RestaurantTableManagementTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function makeRestaurantWithOwner(string $suffix): array
+    private function makeRestaurantWithOwner(string $suffix, ?string $plan = 'business'): array
     {
         $owner = User::create([
             'name' => "Owner {$suffix}",
@@ -30,6 +30,17 @@ class RestaurantTableManagementTest extends TestCase
 
         $owner->restaurant_id = $restaurant->id;
         $owner->save();
+
+        if ($plan !== null) {
+            $restaurant->subscriptions()->create([
+                'plan' => $plan,
+                'billing_interval' => 'monthly',
+                'status' => 'active',
+                'amount' => $plan === 'business' ? 199 : 99,
+                'currency' => 'MAD',
+                'starts_at' => now(),
+            ]);
+        }
 
         return [$owner, $restaurant];
     }
@@ -252,4 +263,23 @@ class RestaurantTableManagementTest extends TestCase
             'restaurant_id' => $restaurantB->id,
         ]);
     }
+    public function test_starter_plan_blocks_table_creation_with_upgrade_error(): void
+    {
+        [$owner, $restaurant] = $this->makeRestaurantWithOwner('starter-tables', null);
+
+        $this->actingAs($owner, 'sanctum')
+            ->postJson("/api/restaurants/{$restaurant->id}/tables", [
+                'number' => 1,
+            ])
+            ->assertForbidden()
+            ->assertJsonPath('code', 'PLAN_FEATURE_LOCKED')
+            ->assertJsonPath('feature', 'tables')
+            ->assertJsonPath('required_plan', 'pro');
+
+        $this->assertDatabaseMissing('restaurant_tables', [
+            'restaurant_id' => $restaurant->id,
+            'number' => 1,
+        ]);
+    }
+
 }
