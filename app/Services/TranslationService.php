@@ -34,6 +34,19 @@ class TranslationService
             'description' => $meal->description ?? '',
         ], $language);
 
+        // Do not cache a fallback after a provider outage or missing configuration.
+        if (
+            $translated['name'] === $meal->name
+            && $translated['description'] === ($meal->description ?? '')
+        ) {
+            return new MealTranslation([
+                'meal_id' => $meal->id,
+                'language' => $language,
+                'name' => $translated['name'],
+                'description' => $translated['description'],
+            ]);
+        }
+
         return $this->createOrGetTranslation(
             $meal,
             $language,
