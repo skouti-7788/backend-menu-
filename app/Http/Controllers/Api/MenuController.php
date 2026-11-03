@@ -52,8 +52,8 @@ class MenuController extends Controller
 
             if ($translationSucceeded) {
                 $restaurantTranslation = $restaurant->translations()->updateOrCreate(
-                    ['language' => $language, 'is_manual' => false],
-                    [...$translated, 'source_hash' => $restaurantHash]
+                    ['language' => $language],
+                    [...$translated, 'is_manual' => false, 'source_hash' => $restaurantHash]
                 );
             } else {
                 $restaurantTranslation = new \App\Models\RestaurantTranslation([
@@ -91,8 +91,8 @@ class MenuController extends Controller
 
                 if ($translationSucceeded) {
                     $translation = $category->translations()->updateOrCreate(
-                        ['language' => $language, 'is_manual' => false],
-                        [...$translated, 'source_hash' => $categoryHash]
+                        ['language' => $language],
+                        [...$translated, 'is_manual' => false, 'source_hash' => $categoryHash]
                     );
                 } else {
                     $translation = new \App\Models\MenuCategoryTranslation([
