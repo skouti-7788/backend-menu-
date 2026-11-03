@@ -136,4 +136,51 @@ class TranslationServiceTest extends TestCase
         $this->assertSame($first, $second);
         Http::assertSentCount(1);
     }
+
+    public function test_it_uses_libretranslate_post_payload_and_detected_language(): void
+    {
+        config([
+            'services.translation.provider' => 'libretranslate',
+            'services.translation.url' => 'http://translation.internal:5000/translate',
+            'services.translation.key' => 'test-secret',
+        ]);
+        Http::fake([
+            'translation.internal/*' => Http::response([
+                'translatedText' => 'Chicken tagine',
+                'detectedLanguage' => ['confidence' => 0.99, 'language' => 'ar'],
+            ]),
+        ]);
+
+        $result = app(TranslationService::class)->translateFields([
+            'name' => 'طاجين الدجاج',
+            'description' => '',
+        ], 'en');
+
+        $this->assertSame('Chicken tagine', $result['name']);
+        Http::assertSent(fn (Request $request) =>
+            $request->method() === 'POST'
+            && $request->url() === 'http://translation.internal:5000/translate'
+            && $request['q'] === 'طاجين الدجاج'
+            && $request['source'] === 'auto'
+            && $request['target'] === 'en'
+            && $request['format'] === 'text'
+            && $request['api_key'] === 'test-secret'
+        );
+    }
+
+    public function test_it_uses_libretranslate_detected_language_to_preserve_same_language_text(): void
+    {
+        config([
+            'services.translation.provider' => 'libretranslate',
+            'services.translation.url' => 'http://translation.internal:5000/translate',
+            'services.translation.key' => null,
+        ]);
+        Http::fake(['translation.internal/*' => Http::response([
+            'translatedText' => 'Different wording',
+            'detectedLanguage' => ['confidence' => 0.99, 'language' => 'fr'],
+        ])]);
+
+        $source = ['name' => 'Bonjour le restaurant', 'description' => ''];
+        $this->assertSame($source, app(TranslationService::class)->translateFields($source, 'fr'));
+    }
 }
