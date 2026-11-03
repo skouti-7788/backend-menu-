@@ -71,13 +71,20 @@ class TranslationService
         if (! is_string($serviceUrl) || trim($serviceUrl) === '') return $fallback;
 
         $translated = $fallback;
+        $provider = strtolower((string) config('services.translation.provider', 'mymemory'));
         $contactEmail = config('services.translation.contact_email');
+        $apiKey = config('services.translation.key');
+
+        if (! in_array($provider, ['mymemory', 'libretranslate'], true)) {
+            report(new \\InvalidArgumentException('Unsupported translation provider: '.$provider));
+            return $fallback;
+        }
 
         foreach ($fallback as $key => $text) {
             if (trim($text) === '') continue;
 
             $cacheKey = 'menu_translation:'.hash('sha256', implode('|', [
-                'mymemory', $serviceUrl, $targetLanguage, $text,
+                $provider, $serviceUrl, $targetLanguage, $text,
             ]));
             $cached = Cache::get($cacheKey);
             if (is_string($cached)) {
@@ -91,18 +98,38 @@ class TranslationService
                 $failed = false;
 
                 foreach ($parts as $part) {
-                    $query = ['q' => $part, 'langpair' => 'autodetect|'.$targetLanguage, 'mt' => '1'];
-                    if (is_string($contactEmail) && filter_var($contactEmail, FILTER_VALIDATE_EMAIL)) {
-                        $query['de'] = $contactEmail;
+                    if ($provider === 'libretranslate') {
+                        $payload = [
+                            'q' => $part,
+                            'source' => 'auto',
+                            'target' => $targetLanguage,
+                            'format' => 'text',
+                        ];
+                        if (is_string($apiKey) && trim($apiKey) !== '') {
+                            $payload['api_key'] = $apiKey;
+                        }
+
+                        $response = Http::acceptJson()->connectTimeout(2)->timeout(4)->post($serviceUrl, $payload);
+                        $result = $response->json('translatedText');
+                        $detected = strtolower((string) $response->json('detectedLanguage.language', ''));
+                    } else {
+                        $query = ['q' => $part, 'langpair' => 'autodetect|'.$targetLanguage, 'mt' => '1'];
+                        if (is_string($contactEmail) && filter_var($contactEmail, FILTER_VALIDATE_EMAIL)) {
+                            $query['de'] = $contactEmail;
+                        }
+
+                        $response = Http::acceptJson()->connectTimeout(2)->timeout(4)->get($serviceUrl, $query);
+                        $status = (string) $response->json('responseStatus');
+                        $result = $response->json('responseData.translatedText');
+                        $detected = strtolower((string) $response->json('responseData.detectedLanguage', ''));
+                        if ($status !== '200') {
+                            $failed = true;
+                            break;
+                        }
                     }
 
-                    $response = Http::acceptJson()->connectTimeout(2)->timeout(4)->get($serviceUrl, $query);
-                    $status = (string) $response->json('responseStatus');
-                    $result = $response->json('responseData.translatedText');
-                    $detected = strtolower((string) $response->json('responseData.detectedLanguage', ''));
                     $detected = explode('-', $detected)[0];
-
-                    if (! $response->successful() || $status !== '200' || ! is_string($result) || trim($result) === '') {
+                    if (! $response->successful() || ! is_string($result) || trim($result) === '') {
                         $failed = true;
                         break;
                     }
