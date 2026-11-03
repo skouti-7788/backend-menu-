@@ -1,11 +1,11 @@
 <?php
 
-namespace App\\Services;
+namespace App\Services;
 
-use App\\Models\\Meal;
-use App\\Models\\MealTranslation;
-use Illuminate\\Database\\QueryException;
-use Illuminate\\Support\\Facades\\Http;
+use App\Models\Meal;
+use App\Models\MealTranslation;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Http;
 
 class TranslationService
 {
@@ -18,7 +18,7 @@ class TranslationService
         $language = strtolower(trim($language));
 
         if (! in_array($language, ['en', 'fr', 'ar'], true)) {
-            throw new \\InvalidArgumentException('Unsupported translation language.');
+            throw new \InvalidArgumentException('Unsupported translation language.');
         }
 
         $translation = $meal->translations()
@@ -98,7 +98,7 @@ class TranslationService
                         ? $text
                         : $result;
                 }
-            } catch (\\Throwable $exception) {
+            } catch (\Throwable $exception) {
                 report($exception);
             }
         }
