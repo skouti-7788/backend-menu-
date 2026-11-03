@@ -15,7 +15,6 @@ use App\Http\Controllers\Api\RestaurantAppearanceController;
 use App\Http\Controllers\Api\StaffController;
 use App\Http\Controllers\Api\PasswordController;
 use App\Http\Controllers\Api\ForgotPasswordController;
-use App\Http\Controllers\Api\ContentTranslationController;
 
 Route::prefix('auth')->group(function () {
     // throttle:6,1 => max 6 requests / minute per IP.
@@ -74,15 +73,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::apiResource('categories', MenuCategoryController::class)->shallow();
         Route::apiResource('meals', MealController::class)->shallow();
         Route::apiResource('orders', OrderController::class)->shallow();
-        Route::get('meals/{meal}/translations', [ContentTranslationController::class, 'showMeal']);
-        Route::put('meals/{meal}/translations/{language}', [ContentTranslationController::class, 'updateMeal']);
-        Route::delete('meals/{meal}/translations/{language}', [ContentTranslationController::class, 'deleteMeal']);
-        Route::get('categories/{category}/translations', [ContentTranslationController::class, 'showCategory']);
-        Route::put('categories/{category}/translations/{language}', [ContentTranslationController::class, 'updateCategory']);
-        Route::delete('categories/{category}/translations/{language}', [ContentTranslationController::class, 'deleteCategory']);
-        Route::get('translations', [ContentTranslationController::class, 'showRestaurant']);
-        Route::put('translations/{language}', [ContentTranslationController::class, 'updateRestaurant']);
-        Route::delete('translations/{language}', [ContentTranslationController::class, 'deleteRestaurant']);
     });
     // Change password — authenticated user only
     Route::put('auth/password', [PasswordController::class, 'update'])
