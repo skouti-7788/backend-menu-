@@ -1,11 +1,11 @@
 <?php
 
-namespace Tests\\Unit;
+namespace Tests\Unit;
 
-use App\\Services\\TranslationService;
-use Illuminate\\Http\\Client\\Request;
-use Illuminate\\Support\\Facades\\Http;
-use Tests\\TestCase;
+use App\Services\TranslationService;
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
+use Tests\TestCase;
 
 class TranslationServiceTest extends TestCase
 {
@@ -69,7 +69,7 @@ class TranslationServiceTest extends TestCase
 
     public function test_it_rejects_unsupported_target_languages(): void
     {
-        $this->expectException(\\InvalidArgumentException::class);
+        $this->expectException(\InvalidArgumentException::class);
 
         app(TranslationService::class)->translateFields(['name' => 'Meal'], 'es');
     }
