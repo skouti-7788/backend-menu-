@@ -68,3 +68,56 @@ provider's secret environment settings; never commit them.
   description can therefore be entered in different languages.
 - Self-hosted LibreTranslate normally does not require an API key. A hosted
   provider may require one.
+
+## Deploy LibreTranslate on Render (separate private service)
+
+The Docker Compose file above is for local development only. It does not create a
+Render service. Create a separate **Private Service** in the same Render workspace
+as the Laravel API:
+
+1. Choose **Deploy an existing image** and use
+   `libretranslate/libretranslate:latest`.
+2. Set the service name to `libretranslate`. Choose the **same region** as the
+   Laravel API so the API can reach it over Render's private network.
+3. Set the start command to:
+
+   ```bash
+   --host 0.0.0.0 --port 5000 --load-only en,fr,ar --disable-web-ui
+   ```
+
+4. Attach a persistent disk at
+   `/home/libretranslate/.local/share` so downloaded Argos language models
+   survive service restarts. Persistent disks require a paid Render service.
+5. Do not add a public HTTP endpoint or expose the service to the public internet.
+   Keep it private to the Render workspace.
+6. In the Laravel API service's environment settings, set:
+
+   ```dotenv
+   TRANSLATION_API_URL=http://libretranslate:5000/translate
+   TRANSLATION_PROVIDER=libretranslate
+   TRANSLATION_API_KEY=
+   ```
+
+   Leave the API key empty for a self-hosted LibreTranslate instance unless you
+   explicitly enable API-key protection on the translation service.
+
+7. Deploy the translation service and wait for its first startup to finish
+   downloading the requested language models. Check the service logs before
+   testing the API from Laravel.
+
+### Verify the live service
+
+From a shell that can reach the private Render network, check:
+
+```bash
+curl --fail http://libretranslate:5000/health
+curl --fail http://libretranslate:5000/languages
+```
+
+Then test the six directions individually using the curl example above, changing
+the source text and target language. Confirm the `detectedLanguage.language`
+field matches the actual source language for each sample.
+
+**Do not mark translation production-ready based only on Laravel CI.** CI tests
+the Laravel integration with mocked HTTP responses; a live LibreTranslate
+deployment and real language-model checks are separate release gates.
