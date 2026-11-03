@@ -52,7 +52,7 @@ class MenuController extends Controller
                 $translated['name'] === $restaurant->name
                 && $translated['description'] === ($restaurant->description ?? '')
             )
-                ? new \\App\\Models\\RestaurantTranslation([
+                ? new \App\Models\RestaurantTranslation([
                     'language' => $language,
                     ...$translated,
                 ])
@@ -90,7 +90,7 @@ class MenuController extends Controller
                     $translated['name'] === $category->name
                     && $translated['description'] === ($category->description ?? '')
                 )
-                    ? new \\App\\Models\\MenuCategoryTranslation([
+                    ? new \App\Models\MenuCategoryTranslation([
                         'language' => $language,
                         ...$translated,
                     ])
