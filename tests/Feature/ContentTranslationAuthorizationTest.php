@@ -152,7 +152,7 @@ class ContentTranslationAuthorizationTest extends TestCase
 
     public function test_public_menu_does_not_overwrite_a_manual_meal_translation(): void
     {
-        config(['services.translation.url' => 'http://translation.test/translate']);
+        config(['services.translation.url' => 'https://api.mymemory.translated.net/get']);
         Http::fake([
             'translation.test/translate' => Http::response([
                 'translatedText' => 'Automatically translated text',
@@ -244,11 +244,14 @@ class ContentTranslationAuthorizationTest extends TestCase
 
     public function test_public_menu_translates_text_without_changing_prices_contact_or_address(): void
     {
-        config(['services.translation.url' => 'http://translation.test/translate']);
+        config(['services.translation.url' => 'https://api.mymemory.translated.net/get']);
         Http::fake([
-            'translation.test/translate' => Http::response([
-                'translatedText' => 'Texte traduit',
-                'detectedLanguage' => ['language' => 'en'],
+            'api.mymemory.translated.net/get*' => Http::response([
+                'responseStatus' => 200,
+                'responseData' => [
+                    'translatedText' => 'Texte traduit',
+                    'detectedLanguage' => 'en',
+                ],
             ]),
         ]);
 
@@ -284,7 +287,8 @@ class ContentTranslationAuthorizationTest extends TestCase
             ->assertJsonPath('categories.0.name', 'Texte traduit');
 
         Http::assertSent(function ($request) {
-            return $request->url() === 'http://translation.test/translate'
+            return str_starts_with($request->url(), 'https://api.mymemory.translated.net/get')
+                && $request['langpair'] === 'autodetect|fr'
                 && isset($request['q'])
                 && ! is_numeric($request['q']);
         });
@@ -293,11 +297,14 @@ class ContentTranslationAuthorizationTest extends TestCase
 
     public function test_backend_detects_source_language_and_uses_auto_translation_for_all_menu_content(): void
     {
-        config(['services.translation.url' => 'http://translation.test/translate']);
+        config(['services.translation.url' => 'https://api.mymemory.translated.net/get']);
         Http::fake(function ($request) {
             return Http::response([
-                'translatedText' => 'Incorrect duplicate translation',
-                'detectedLanguage' => ['language' => 'fr'],
+                'responseStatus' => 200,
+                'responseData' => [
+                    'translatedText' => 'Incorrect duplicate translation',
+                    'detectedLanguage' => 'fr',
+                ],
             ]);
         });
 
@@ -327,24 +334,27 @@ class ContentTranslationAuthorizationTest extends TestCase
         $response = $this->getJson("/api/menu/{$restaurant->slug}?lang=en");
 
         $response->assertOk()
-            ->assertJsonPath('restaurant.name', 'Incorrect duplicate translation')
+            ->assertJsonPath('restaurant.name', 'Restaurant français')
             ->assertJsonPath('categories.0.name', 'Incorrect duplicate translation')
             ->assertJsonPath('meals.0.name', 'Incorrect duplicate translation');
 
         Http::assertSent(function ($request) {
-            return $request->url() === 'http://translation.test/translate'
-                && $request['source'] === 'auto'
-                && $request['target'] === 'en';
+            return str_starts_with($request->url(), 'https://api.mymemory.translated.net/get')
+                && $request['langpair'] === 'autodetect|en'
+                && $request['mt'] === '1';
         });
     }
 
     public function test_public_menu_refreshes_automatic_translations_when_source_text_changes(): void
     {
-        config(['services.translation.url' => 'http://translation.test/translate']);
+        config(['services.translation.url' => 'https://api.mymemory.translated.net/get']);
         Http::fake(function ($request) {
             return Http::response([
-                'translatedText' => 'FR '.$request['q'],
-                'detectedLanguage' => ['language' => 'en'],
+                'responseStatus' => 200,
+                'responseData' => [
+                    'translatedText' => 'FR '.$request['q'],
+                    'detectedLanguage' => 'en',
+                ],
             ]);
         });
 
@@ -458,7 +468,7 @@ class ContentTranslationAuthorizationTest extends TestCase
 
     public function test_public_menu_preserves_manual_restaurant_and_category_translations_after_source_changes(): void
     {
-        config(['services.translation.url' => 'http://translation.test/translate']);
+        config(['services.translation.url' => 'https://api.mymemory.translated.net/get']);
         Http::fake(function ($request) {
             return Http::response([
                 'translatedText' => 'AUTO '.$request['q'],
