@@ -2,21 +2,21 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\MealStatus;
 use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Order\OrderRequest;
-use App\Models\Meal;
 use App\Models\MenuView;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Restaurant;
-use App\Models\RestaurantAppearance;
 use App\Models\RestaurantTable;
+use App\Services\PlanEnforcer;
 use App\Services\TranslationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use App\Enums\MealStatus;
+
 class MenuController extends Controller
 {
     public function show(Request $request, string $slug, TranslationService $translator): JsonResponse
@@ -33,35 +33,15 @@ class MenuController extends Controller
                     ->with('translations'),
                 'meals' => fn ($query) => $query
                     ->where('status', MealStatus::ACTIVE)
+                    ->whereHas('category', fn ($categoryQuery) => $categoryQuery
+                        ->where('status', MealStatus::ACTIVE))
                     ->with('translations'),
                 'translations',
+                'appearance',
             ])
             ->firstOrFail();
 
-        // Generate and cache restaurant translations from the original content.
-        $restaurantSource = [
-            'name' => $restaurant->name,
-            'description' => $restaurant->description ?? '',
-        ];
-        $restaurantHash = hash('sha256', json_encode($restaurantSource, JSON_UNESCAPED_UNICODE));
-        $restaurantTranslation = $restaurant->translations->firstWhere('language', $language);
-
-        if (! $restaurantTranslation || $restaurantTranslation->is_manual || $restaurantTranslation->source_hash !== $restaurantHash) {
-            $translated = $translator->translateFields($restaurantSource, $language);
-            $translationSucceeded = $translated !== $restaurantSource;
-
-            if ($translationSucceeded) {
-                $restaurantTranslation = $restaurant->translations()->updateOrCreate(
-                    ['language' => $language],
-                    [...$translated, 'is_manual' => false, 'source_hash' => $restaurantHash]
-                );
-            } else {
-                $restaurantTranslation = new \App\Models\RestaurantTranslation([
-                    'language' => $language,
-                    ...$restaurantSource,
-                ]);
-            }
-        }
+        $restaurantTranslation = $translator->translateRestaurant($restaurant, $language);
 
         $mealItems = $restaurant->meals->map(function ($meal) use ($language, $translator) {
             $translation = $translator->translateMeal($meal, $language);
@@ -78,29 +58,7 @@ class MenuController extends Controller
         });
 
         $categoryItems = $restaurant->categories->map(function ($category) use ($language, $translator) {
-            $categorySource = [
-                'name' => $category->name,
-                'description' => $category->description ?? '',
-            ];
-            $categoryHash = hash('sha256', json_encode($categorySource, JSON_UNESCAPED_UNICODE));
-            $translation = $category->translations->firstWhere('language', $language);
-
-            if (! $translation || $translation->is_manual || $translation->source_hash !== $categoryHash) {
-                $translated = $translator->translateFields($categorySource, $language);
-                $translationSucceeded = $translated !== $categorySource;
-
-                if ($translationSucceeded) {
-                    $translation = $category->translations()->updateOrCreate(
-                        ['language' => $language],
-                        [...$translated, 'is_manual' => false, 'source_hash' => $categoryHash]
-                    );
-                } else {
-                    $translation = new \App\Models\MenuCategoryTranslation([
-                        'language' => $language,
-                        ...$categorySource,
-                    ]);
-                }
-            }
+            $translation = $translator->translateCategory($category, $language);
 
             return [
                 'id' => $category->id,
@@ -114,7 +72,7 @@ class MenuController extends Controller
 
         // Public menu capabilities are derived server-side from the active plan.
         // The frontend uses these flags only for UX; backend authorization remains authoritative.
-        $planEnforcer = app(\App\Services\PlanEnforcer::class);
+        $planEnforcer = app(PlanEnforcer::class);
         $activePlan = $planEnforcer->planFor($restaurant);
 
         return response()->json([
@@ -157,7 +115,7 @@ class MenuController extends Controller
                 ],
                 'limits' => $activePlan['limits'] ?? [],
             ],
-            'tables' => app(\App\Services\PlanEnforcer::class)->hasFeature($restaurant, 'tables')
+            'tables' => app(PlanEnforcer::class)->hasFeature($restaurant, 'tables')
                 ? $restaurant->tables()
                     ->where('status', '!=', 'inactive')
                     ->orderBy('number')
@@ -175,7 +133,7 @@ class MenuController extends Controller
     public function storeOrder(OrderRequest $request, string $slug): JsonResponse
     {
         $restaurant = Restaurant::where('slug', $slug)->firstOrFail();
-        app(\App\Services\PlanEnforcer::class)->assertFeature($restaurant, 'orders');
+        app(PlanEnforcer::class)->assertFeature($restaurant, 'orders');
 
         $items = collect($request->input('items', []));
 
@@ -306,7 +264,7 @@ class MenuController extends Controller
             ],
         ], 201);
     }
-        
+
     public function recordView(Request $request, string $slug): JsonResponse
     {
         $validated = $request->validate([

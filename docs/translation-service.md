@@ -30,13 +30,23 @@ php artisan config:clear
   `langpair=autodetect|TARGET`.
 - Empty fields are skipped.
 - Same-language results are kept as the original text.
+- Source language detection is requested separately for each content field.
+- Original restaurant, category, and meal fields are never replaced by translated text.
+- A manually marked translation is authoritative and is never automatically overwritten, even if its source hash is old.
+- Automatic translations are persisted only after every non-empty field succeeds. A partial failure returns original values for failed fields and leaves any stored translation untouched.
 - Input is split at sentence/word boundaries into chunks of at most 450 bytes;
   MyMemory documents a 500-byte maximum for each `q` value.
 - A field is returned as translated only if every chunk succeeds. Otherwise,
   the original field is returned.
 - Successful translations are cached for 30 days; provider failures cache the
-  original text for 5 minutes.
-- All restaurant content translations are generated and cached automatically by the backend. Restaurant users do not enter or manage translated fields.
+  original text for 5 minutes. Cache keys isolate the entity, field, original
+  content, provider configuration, source-detection mode, and target language.
+- Editing source content changes its hash and causes an automatic translation
+  to be regenerated on the next public menu request. A failed regeneration does
+  not overwrite the previous translation.
+- Public content fields translated are restaurant, category, and meal names
+  and descriptions. Addresses, prices, quantities, URLs, image paths, and
+  structured opening hours remain unchanged.
 
 ## Limits and caution
 
