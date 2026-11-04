@@ -1,9 +1,6 @@
 name: Run targeted Aiven migration
 
 on:
-  push:
-    branches:
-      - ops/run-aiven-migrations
   workflow_dispatch:
     inputs:
       confirm:
@@ -16,9 +13,10 @@ permissions:
 
 jobs:
   migrate:
-    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.confirm == 'RUN') || (github.event_name == 'push' && contains(github.event.head_commit.message, '[RUN-AIVEN-MIGRATION]')) }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirm == 'RUN' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    environment: production
 
     steps:
       - name: Check out this branch
@@ -49,7 +47,7 @@ jobs:
           test -n "$AIVEN_DB_USERNAME"
           test -n "$AIVEN_DB_PASSWORD"
           test -n "$AIVEN_CA_CERT"
-          printf '%s\n' "$AIVEN_CA_CERT" > "$RUNNER_TEMP/aiven-ca.pem"
+          printf '%s\\n' "$AIVEN_CA_CERT" > "$RUNNER_TEMP/aiven-ca.pem"
           chmod 600 "$RUNNER_TEMP/aiven-ca.pem"
           {
             echo "DB_CONNECTION=mysql"
@@ -67,17 +65,17 @@ jobs:
           php -r '
           require "vendor/autoload.php";
           $app = require "bootstrap/app.php";
-          $kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
+          $kernel = $app->make(Illuminate\\Contracts\\Console\\Kernel::class);
           $kernel->bootstrap();
-          if (!Illuminate\Support\Facades\Schema::hasTable("restaurants")) {
-              fwrite(STDERR, "Required table restaurants is missing; stopping without applying the migration.\n");
+          if (!Illuminate\\Support\\Facades\\Schema::hasTable("restaurants")) {
+              fwrite(STDERR, "Required table restaurants is missing; stopping without applying the migration.\\n");
               exit(1);
           }
-          if (Illuminate\Support\Facades\Schema::hasTable("restaurant_subscriptions")) {
-              fwrite(STDERR, "restaurant_subscriptions already exists; stopping without changing it.\n");
+          if (Illuminate\\Support\\Facades\\Schema::hasTable("restaurant_subscriptions")) {
+              fwrite(STDERR, "restaurant_subscriptions already exists; stopping without changing it.\\n");
               exit(1);
           }
-          echo "Database prerequisites verified.\n";
+          echo "Database prerequisites verified.\\n";
           '
 
       - name: Apply only restaurant_subscriptions migration
@@ -88,11 +86,11 @@ jobs:
           php -r '
           require "vendor/autoload.php";
           $app = require "bootstrap/app.php";
-          $kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
+          $kernel = $app->make(Illuminate\\Contracts\\Console\\Kernel::class);
           $kernel->bootstrap();
-          if (!Illuminate\Support\Facades\Schema::hasTable("restaurant_subscriptions")) {
-              fwrite(STDERR, "Verification failed: table was not found.\n");
+          if (!Illuminate\\Support\\Facades\\Schema::hasTable("restaurant_subscriptions")) {
+              fwrite(STDERR, "Verification failed: table was not found.\\n");
               exit(1);
           }
-          echo "Verified: restaurant_subscriptions exists.\n";
+          echo "Verified: restaurant_subscriptions exists.\\n";
           '
