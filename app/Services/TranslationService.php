@@ -7,6 +7,7 @@ use App\Models\MealTranslation;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class TranslationService
 {
@@ -68,7 +69,10 @@ class TranslationService
         foreach ($fields as $key => $value) $fallback[$key] = is_string($value) ? $value : '';
 
         $serviceUrl = config('services.translation.url');
-        if (! is_string($serviceUrl) || trim($serviceUrl) === '') return $fallback;
+        if (! is_string($serviceUrl) || trim($serviceUrl) === '') {
+            Log::warning('Translation skipped: provider URL is not configured.', ['provider' => config('services.translation.provider', 'mymemory'), 'target_language' => $targetLanguage]);
+            return $fallback;
+        }
 
         $translated = $fallback;
         $provider = strtolower((string) config('services.translation.provider', 'mymemory'));
@@ -123,6 +127,7 @@ class TranslationService
                         $result = $response->json('responseData.translatedText');
                         $detected = strtolower((string) $response->json('responseData.detectedLanguage', ''));
                         if ($status !== '200') {
+                            Log::warning('Translation provider returned an API error.', ['provider' => $provider, 'target_language' => $targetLanguage, 'http_status' => $response->status(), 'provider_status' => $status]);
                             $failed = true;
                             break;
                         }
@@ -130,6 +135,7 @@ class TranslationService
 
                     $detected = explode('-', $detected)[0];
                     if (! $response->successful() || ! is_string($result) || trim($result) === '') {
+                        Log::warning('Translation provider returned an unsuccessful or empty response.', ['provider' => $provider, 'target_language' => $targetLanguage, 'http_status' => $response->status()]);
                         $failed = true;
                         break;
                     }
@@ -146,6 +152,7 @@ class TranslationService
                 Cache::put($cacheKey, $value, now()->addDays(30));
                 $translated[$key] = $value;
             } catch (\Throwable $exception) {
+                Log::warning('Translation request failed with an exception.', ['provider' => $provider, 'target_language' => $targetLanguage, 'exception' => $exception::class]);
                 report($exception);
                 Cache::put($cacheKey, $text, now()->addMinutes(5));
                 $translated[$key] = $text;
