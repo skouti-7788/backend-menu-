@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   migrate:
-    if: \${{ github.event_name == 'workflow_dispatch' && inputs.confirm == 'RUN' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirm == 'RUN' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: production
@@ -34,12 +34,12 @@ jobs:
 
       - name: Configure Aiven connection
         env:
-          AIVEN_DB_HOST: \${{ secrets.AIVEN_DB_HOST }}
-          AIVEN_DB_PORT: \${{ secrets.AIVEN_DB_PORT }}
-          AIVEN_DB_DATABASE: \${{ secrets.AIVEN_DB_DATABASE }}
-          AIVEN_DB_USERNAME: \${{ secrets.AIVEN_DB_USERNAME }}
-          AIVEN_DB_PASSWORD: \${{ secrets.AIVEN_DB_PASSWORD }}
-          AIVEN_CA_CERT: \${{ secrets.AIVEN_CA_CERT }}
+          AIVEN_DB_HOST: ${{ secrets.AIVEN_DB_HOST }}
+          AIVEN_DB_PORT: ${{ secrets.AIVEN_DB_PORT }}
+          AIVEN_DB_DATABASE: ${{ secrets.AIVEN_DB_DATABASE }}
+          AIVEN_DB_USERNAME: ${{ secrets.AIVEN_DB_USERNAME }}
+          AIVEN_DB_PASSWORD: ${{ secrets.AIVEN_DB_PASSWORD }}
+          AIVEN_CA_CERT: ${{ secrets.AIVEN_CA_CERT }}
         run: |
           test -n "$AIVEN_DB_HOST"
           test -n "$AIVEN_DB_PORT"
